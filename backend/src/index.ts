@@ -89,7 +89,7 @@ app.get('/auth/google/callback',
     : (req, res) => res.redirect(`${frontendUrl}?error=google-oauth-not-configured`),
   (req, res) => {
     // Successful authentication
-    res.redirect(`${frontendUrl}/dashboard`)
+    res.redirect(frontendUrl)
   }
 )
 
