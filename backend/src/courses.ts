@@ -141,6 +141,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'Easy Tee',
     bookingUrl: 'https://app.easyteegolf.com/course/granite-fields-golf-club/',
     authType: 'none',
+    latitude: 42.8628067,
+    longitude: -71.0878971,
     easyTee: {
       slug: 'granite-fields-golf-club',
     },
@@ -186,6 +188,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'ForeUP',
     bookingUrl: 'https://foreupsoftware.com/index.php/booking/20363/4577#/teetimes?merchant_id=20363',
     authType: 'none',
+    latitude: 42.866,
+    longitude: -71.477,
     foreUp: {
       courseId: 20363,
       bookingClass: 14986,
@@ -201,6 +205,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'Chronogolf',
     bookingUrl: 'https://www.chronogolf.com/marketplace/clubs/9821/teetimes',
     authType: 'none',
+    latitude: 42.8705,
+    longitude: -71.6074,
     chronogolf: {
       clubId: 9821,
       courseId: 11260,
@@ -217,6 +223,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'TeeItUp',
     bookingUrl: 'https://windham-country.book.teeitup.com/',
     authType: 'none',
+    latitude: 42.8192,
+    longitude: -71.3124,
     teeItUp: {
       facilityId: 15931,
       alias: 'windham-country',
