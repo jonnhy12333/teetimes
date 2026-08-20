@@ -16,6 +16,8 @@ interface Course {
   bookingUrl: string
   authType: 'none' | 'member-login' | 'oauth' | 'unknown'
   status?: 'active' | 'unsupported'
+  latitude?: number
+  longitude?: number
   notes?: string
 }
 
@@ -32,6 +34,14 @@ interface TeeTime {
   bookingUrl: string
   authRequired: boolean
   authType: Course['authType']
+}
+
+interface WeatherHour {
+  time: string
+  temperature?: number
+  weatherCode?: number
+  windSpeed?: number
+  precipitationProbability?: number
 }
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || ''
@@ -107,6 +117,36 @@ function isPastTeeTime(teeTime: TeeTime) {
   return getTimeSortValue(teeTime.time) < now.getHours() * 60 + now.getMinutes()
 }
 
+function getWeatherIcon(weatherCode?: number) {
+  if (weatherCode === undefined) {
+    return ''
+  }
+
+  if (weatherCode === 0) return 'Sunny'
+  if ([1, 2].includes(weatherCode)) return 'Partly cloudy'
+  if (weatherCode === 3) return 'Cloudy'
+  if ([45, 48].includes(weatherCode)) return 'Fog'
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(weatherCode)) return 'Rain'
+  if ([71, 73, 75, 77, 85, 86].includes(weatherCode)) return 'Snow'
+  if ([95, 96, 99].includes(weatherCode)) return 'Storms'
+
+  return 'Weather'
+}
+
+function getTeeTimeDate(teeTime: TeeTime) {
+  const match = teeTime.time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+
+  if (!match) {
+    return null
+  }
+
+  const [, hourText, minuteText, period] = match
+  const hour = Number(hourText)
+  const normalizedHour = (hour % 12) + (period.toUpperCase() === 'PM' ? 12 : 0)
+
+  return new Date(`${teeTime.date}T${String(normalizedHour).padStart(2, '0')}:${minuteText}:00`)
+}
+
 export default function Dashboard(props: DashboardProps) {
   const [selectedDay, setSelectedDay] = createSignal('today')
   const [selectedCourseId, setSelectedCourseId] = createSignal('all')
@@ -115,6 +155,7 @@ export default function Dashboard(props: DashboardProps) {
   const [maxTime, setMaxTime] = createSignal(18)
   const [courses, setCourses] = createSignal<Course[]>([])
   const [teeTimes, setTeeTimes] = createSignal<TeeTime[]>([])
+  const [weatherByCourse, setWeatherByCourse] = createSignal<Record<string, WeatherHour[]>>({})
   const [isLoading, setIsLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
 
@@ -157,10 +198,28 @@ export default function Dashboard(props: DashboardProps) {
     })
   })
 
+  const getWeatherForTeeTime = (teeTime: TeeTime) => {
+    const teeTimeDate = getTeeTimeDate(teeTime)
+    const weatherHours = weatherByCourse()[teeTime.courseId] || []
+
+    if (!teeTimeDate || !weatherHours.length) {
+      return null
+    }
+
+    return weatherHours.reduce<WeatherHour | null>((closestWeather, weatherHour) => {
+      const weatherDate = new Date(weatherHour.time)
+      const currentDifference = Math.abs(weatherDate.getTime() - teeTimeDate.getTime())
+      const closestDifference = closestWeather ? Math.abs(new Date(closestWeather.time).getTime() - teeTimeDate.getTime()) : Number.POSITIVE_INFINITY
+
+      return currentDifference < closestDifference ? weatherHour : closestWeather
+    }, null)
+  }
+
   createEffect(async () => {
     const date = getDateForDay(selectedDay())
     setIsLoading(true)
     setError(null)
+    setWeatherByCourse({})
 
     try {
       const coursesResponse = await fetch(`${apiBaseUrl}/api/courses`, {
@@ -185,8 +244,25 @@ export default function Dashboard(props: DashboardProps) {
           return response.json() as Promise<TeeTime[]>
         }),
       )
+      const weatherEntries = await Promise.all(
+        nextCourses
+          .filter((course) => course.latitude && course.longitude)
+          .map(async (course) => {
+            const response = await fetch(`${apiBaseUrl}/api/courses/${course.id}/weather?date=${date}`, {
+              credentials: 'include',
+            })
+
+            if (!response.ok) {
+              return [course.id, []] as const
+            }
+
+            const weather = await response.json() as { hourly?: WeatherHour[] }
+            return [course.id, weather.hourly || []] as const
+          }),
+      )
 
       setCourses(nextCourses)
+      setWeatherByCourse(Object.fromEntries(weatherEntries))
       setTeeTimes(teeTimeLists.flat().sort((first, second) => getTimeSortValue(first.time) - getTimeSortValue(second.time)))
     } catch (error) {
       console.error('Failed to load tee times', error)
@@ -375,6 +451,14 @@ export default function Dashboard(props: DashboardProps) {
                         {teeTime.price && <span> • ${teeTime.price}</span>}
                         {teeTime.cartFee && <span> • cart ${teeTime.cartFee}</span>}
                         {teeTime.authRequired && <span> • {getAuthLabel(teeTime.authType)}</span>}
+                        <Show when={getWeatherForTeeTime(teeTime)}>
+                          {(weather) => (
+                            <span class="weather-chip">
+                              • {getWeatherIcon(weather().weatherCode)} {Math.round(weather().temperature || 0)}°F
+                              {weather().windSpeed !== undefined && <span> • wind {Math.round(weather().windSpeed!)} mph</span>}
+                            </span>
+                          )}
+                        </Show>
                       </div>
                     </div>
                     <a class="book-btn" href={teeTime.bookingUrl} target="_blank" rel="noreferrer">

@@ -406,6 +406,11 @@ body::before {
   font-size: 14px;
 }
 
+.weather-chip {
+  color: #2d5016;
+  font-weight: 600;
+}
+
 .book-btn {
   padding: 10px 20px;
   background-color: #4CAF50;

@@ -12,6 +12,8 @@ export interface CourseConfig {
   bookingUrl: string
   authType: CourseAuthType
   status?: 'active' | 'unsupported'
+  latitude?: number
+  longitude?: number
   foreUp?: {
     courseId: number
     bookingClass: number
@@ -152,6 +154,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'ForeUP',
     bookingUrl: 'https://foreupsoftware.com/index.php/booking/18836/3372#/teetimes',
     authType: 'none',
+    latitude: 42.888,
+    longitude: -71.314,
     foreUp: {
       courseId: 18836,
       bookingClass: 5165,
