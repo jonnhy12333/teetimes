@@ -173,6 +173,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'ForeUP',
     bookingUrl: 'https://foreupsoftware.com/index.php/booking/20454/4585#/teetimes?merchant_id=20454',
     authType: 'none',
+    latitude: 42.88058,
+    longitude: -71.44939,
     foreUp: {
       courseId: 20454,
       bookingClass: 14991,
