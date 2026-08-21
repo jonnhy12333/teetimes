@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ark-ui/solid": "^5.38.2",
+    "@thisbeyond/solid-dnd": "^0.7.5",
     "solid-js": "^1.8.17"
   },
   "devDependencies": {

@@ -8,6 +8,8 @@ dotenv.config()
 const app = express()
 const port = process.env.PORT || 5000
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+const weatherCache = new Map<string, { expiresAt: number; hourly: unknown[] }>()
+const weatherCacheDurationMs = 10 * 60 * 1000
 
 app.set('trust proxy', 1)
 
@@ -67,6 +69,23 @@ app.get('/api/courses/:id/weather', async (req, res) => {
     }
 
     const forecastDate = String(date || new Date().toISOString().slice(0, 10))
+    const cacheKey = `${course.id}:${forecastDate}`
+    const cachedWeather = weatherCache.get(cacheKey)
+
+    if (cachedWeather && cachedWeather.expiresAt > Date.now()) {
+      res.json({ hourly: cachedWeather.hourly })
+      return
+    }
+
+    const today = new Date()
+    const requestedDate = new Date(`${forecastDate}T12:00:00`)
+    const lastForecastDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 15, 12)
+
+    if (Number.isNaN(requestedDate.getTime()) || requestedDate > lastForecastDate) {
+      res.json({ hourly: [] })
+      return
+    }
+
     const params = new URLSearchParams({
       latitude: String(course.latitude),
       longitude: String(course.longitude),
@@ -80,7 +99,8 @@ app.get('/api/courses/:id/weather', async (req, res) => {
     const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`)
 
     if (!response.ok) {
-      throw new Error(`Open-Meteo request failed with ${response.status}`)
+      const responseText = await response.text()
+      throw new Error(`Open-Meteo request failed with ${response.status}: ${responseText.slice(0, 300)}`)
     }
 
     const data = await response.json() as {
@@ -100,9 +120,11 @@ app.get('/api/courses/:id/weather', async (req, res) => {
       precipitationProbability: data.hourly?.precipitation_probability?.[index],
     }))
 
+    weatherCache.set(cacheKey, { expiresAt: Date.now() + weatherCacheDurationMs, hourly })
     res.json({ hourly })
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch weather' })
+    console.error('Failed to fetch weather', error)
+    res.json({ hourly: [], unavailable: true })
   }
 })
 
