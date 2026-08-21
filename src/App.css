@@ -18,7 +18,7 @@
   --accent: #4CAF50;
   --accent-hover: #45a049;
   --accent-dark: #2d5016;
-  --accent-contrast: #102414;
+  --accent-contrast: #ffffff;
   --info-bg: #e7f5ff;
   --info-text: #0b7285;
   --warning-bg: #fff3bf;
@@ -504,7 +504,7 @@ a.weather-chip:focus-visible {
 .book-btn {
   padding: 10px 20px;
   background-color: var(--accent);
-  color: white;
+  color: var(--accent-contrast);
   border: none;
   border-radius: 6px;
   cursor: pointer;
