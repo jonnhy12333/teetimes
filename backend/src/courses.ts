@@ -226,6 +226,7 @@ export const courses: CourseConfig[] = [
     authType: 'none',
     latitude: 42.8705,
     longitude: -71.6074,
+    logoUrl: '/course-logos/souhegan-woods.png',
     chronogolf: {
       clubId: 9821,
       courseId: 11260,
