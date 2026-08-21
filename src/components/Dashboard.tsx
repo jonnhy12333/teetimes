@@ -465,7 +465,7 @@ export default function Dashboard(props: DashboardProps) {
                         </a>
                         <div class="tee-time-details">
                           {teeTime.time} • {teeTime.holes} holes
-                          {teeTime.availableSpots && <span> • {teeTime.availableSpots} spots</span>}
+                          {teeTime.availableSpots && <span> • {teeTime.availableSpots} {teeTime.availableSpots === 1 ? 'spot' : 'spots'}</span>}
                           {teeTime.price && <span> • ${teeTime.price}</span>}
                           {teeTime.cartFee && <span> • cart ${teeTime.cartFee}</span>}
                           {teeTime.authRequired && <span> • {getAuthLabel(teeTime.authType)}</span>}
@@ -474,24 +474,30 @@ export default function Dashboard(props: DashboardProps) {
                               <Show
                                 when={getCourseForTeeTime(teeTime)}
                                 fallback={
-                                  <span class="weather-chip">
-                                    • {getWeatherIcon(weather().weatherCode)}
-                                    {weather().temperature !== undefined && <span> {Math.round(weather().temperature!)}°F</span>}
-                                    {weather().windSpeed !== undefined && <span> • wind {Math.round(weather().windSpeed!)} mph</span>}
-                                  </span>
+                                  <>
+                                    <span> • </span>
+                                    <span class="weather-chip">
+                                      {getWeatherIcon(weather().weatherCode)}
+                                      {weather().temperature !== undefined && <span> {Math.round(weather().temperature!)}°F</span>}
+                                      {weather().windSpeed !== undefined && <span> • wind {Math.round(weather().windSpeed!)} mph</span>}
+                                    </span>
+                                  </>
                                 }
                               >
                                 {(course) => (
-                                  <a
-                                    class="weather-chip"
-                                    href={getWeatherForecastUrl(course()) || undefined}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    • {getWeatherIcon(weather().weatherCode)}
-                                    {weather().temperature !== undefined && <span> {Math.round(weather().temperature!)}°F</span>}
-                                    {weather().windSpeed !== undefined && <span> • wind {Math.round(weather().windSpeed!)} mph</span>}
-                                  </a>
+                                  <>
+                                    <span> • </span>
+                                    <a
+                                      class="weather-chip"
+                                      href={getWeatherForecastUrl(course()) || undefined}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
+                                      {getWeatherIcon(weather().weatherCode)}
+                                      {weather().temperature !== undefined && <span> {Math.round(weather().temperature!)}°F</span>}
+                                      {weather().windSpeed !== undefined && <span> • wind {Math.round(weather().windSpeed!)} mph</span>}
+                                    </a>
+                                  </>
                                 )}
                               </Show>
                             )}
