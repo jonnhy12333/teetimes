@@ -58,8 +58,8 @@ const timePeriodOptions = ['morning', 'afternoon', 'evening', 'any']
 
 const timePeriodRanges: Record<string, { start: number; end: number } | null> = {
   morning: { start: 6, end: 12 },
-  afternoon: { start: 12, end: 17 },
-  evening: { start: 17, end: 24 },
+  afternoon: { start: 12, end: 16 },
+  evening: { start: 16, end: 24 },
   any: null,
 }
 
