@@ -205,7 +205,7 @@ export const courses: CourseConfig[] = [
     city: 'Amherst',
     state: 'NH',
     bookingSystem: 'Chronogolf',
-    bookingUrl: 'https://www.chronogolf.com/marketplace/clubs/9821/teetimes',
+    bookingUrl: 'https://souheganwoods.com/',
     authType: 'none',
     latitude: 42.8705,
     longitude: -71.6074,
