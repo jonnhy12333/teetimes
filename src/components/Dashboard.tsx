@@ -1,6 +1,6 @@
 import { Select, createListCollection } from '@ark-ui/solid/select'
 import { SegmentGroup } from '@ark-ui/solid/segment-group'
-import { createEffect, createMemo, createSignal, For, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onMount, Show } from 'solid-js'
 
 interface Course {
   id: string
@@ -206,6 +206,8 @@ export default function Dashboard() {
   const [teeTimes, setTeeTimes] = createSignal<TeeTime[]>([])
   const [weatherByCourse, setWeatherByCourse] = createSignal<Record<string, WeatherHour[]>>({})
   const [isLoading, setIsLoading] = createSignal(true)
+  const [isSearching, setIsSearching] = createSignal(false)
+  const [searchedDay, setSearchedDay] = createSignal<string | null>(null)
   const [error, setError] = createSignal<string | null>(null)
 
   createEffect(() => {
@@ -296,11 +298,9 @@ export default function Dashboard() {
     return courses().find((course) => course.id === teeTime.courseId)
   }
 
-  const loadTeeTimes = async () => {
-    const date = selectedDay()
+  const loadCourses = async () => {
     setIsLoading(true)
     setError(null)
-    setWeatherByCourse({})
 
     try {
       const coursesResponse = await fetch(`${apiBaseUrl}/api/courses`)
@@ -310,6 +310,33 @@ export default function Dashboard() {
       }
 
       const nextCourses: Course[] = await coursesResponse.json()
+      setCourses(nextCourses)
+    } catch (error) {
+      console.error('Failed to load courses', error)
+      setError('Could not load courses. Check that the backend is running.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadTeeTimes = async () => {
+    const date = selectedDay()
+    let nextCourses = courses()
+    setIsSearching(true)
+    setError(null)
+
+    try {
+      if (!nextCourses.length) {
+        const coursesResponse = await fetch(`${apiBaseUrl}/api/courses`)
+
+        if (!coursesResponse.ok) {
+          throw new Error('Unable to load course configs')
+        }
+
+        nextCourses = await coursesResponse.json()
+        setCourses(nextCourses)
+      }
+
       const teeTimeLists = await Promise.all(
         nextCourses.map(async (course) => {
           const response = await fetch(`${apiBaseUrl}/api/courses/${course.id}/tee-times?date=${date}`)
@@ -336,24 +363,27 @@ export default function Dashboard() {
           }),
       )
 
-      setCourses(nextCourses)
       setWeatherByCourse(Object.fromEntries(weatherEntries))
       setTeeTimes(teeTimeLists.flat().sort((first, second) => getTimeSortValue(first.time) - getTimeSortValue(second.time)))
+      setSearchedDay(date)
     } catch (error) {
       console.error('Failed to load tee times', error)
-      setError('Could not load tee times. Check that the backend is running and you are signed in.')
+      setError('Could not load tee times. Check that the backend is running.')
     } finally {
-      setIsLoading(false)
+      setIsSearching(false)
     }
   }
 
-  createEffect(() => {
-    void selectedDay()
-    void loadTeeTimes()
+  onMount(() => {
+    void loadCourses()
   })
 
   const getDayLabel = () => {
     return dayOptions.find((dayOption) => dayOption.value === selectedDay())?.label || 'Today'
+  }
+
+  const getSearchedDayLabel = () => {
+    return dayOptions.find((dayOption) => dayOption.value === searchedDay())?.label || 'No search yet'
   }
 
   const toggleTheme = () => {
@@ -390,35 +420,6 @@ export default function Dashboard() {
                       {(dayOption) => (
                         <Select.Item item={dayOption} class="ark-select-item">
                           <Select.ItemText>{dayOption.label}</Select.ItemText>
-                        </Select.Item>
-                      )}
-                    </For>
-                  </Select.List>
-                </Select.Content>
-              </Select.Positioner>
-              <Select.HiddenSelect />
-            </Select.Root>
-          </div>
-          <div class="filter-field wide">
-            <Select.Root
-              collection={courseCollection()}
-              value={[selectedCourseId()]}
-              onValueChange={(details) => setSelectedCourseId(details.value[0] || 'all')}
-            >
-              <Select.Label>Course</Select.Label>
-              <Select.Control>
-                <Select.Trigger class="ark-select-trigger">
-                  <span>{selectedCourseLabel()}</span>
-                  <Select.Indicator class="ark-select-indicator" />
-                </Select.Trigger>
-              </Select.Control>
-              <Select.Positioner>
-                <Select.Content class="ark-select-content">
-                  <Select.List>
-                    <For each={courseCollection().items}>
-                      {(course) => (
-                        <Select.Item item={course} class="ark-select-item">
-                          <Select.ItemText>{getCourseOptionLabel(course)}</Select.ItemText>
                         </Select.Item>
                       )}
                     </For>
@@ -471,13 +472,39 @@ export default function Dashboard() {
         {/* Tee Times List */}
         <div class="tee-times">
           <div class="tee-times-header">
-            <span>Available Tee Times ({getDayLabel()}) • {filteredTeeTimes().length}</span>
-            <button type="button" class="refresh-btn" onClick={loadTeeTimes} disabled={isLoading()}>
-              <svg class="refresh-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" aria-hidden="true">
-                <path d="M480-160q-133.33 0-226.67-93.33Q160-346.67 160-480q0-133.33 93.33-226.67Q346.67-800 480-800q79.67 0 143.33 32.5 63.67 32.5 110 90.17V-800H800v262.67H537.33V-604h168q-36-58.67-93.83-94T480-733.33q-106 0-179.67 73.66Q226.67-586 226.67-480q0 106 73.66 179.67Q374-226.67 480-226.67q81 0 147.67-46.33 66.66-46.33 93-122.33H790Q761.33-290 675.33-225q-86 65-195.33 65Z" />
-              </svg>
-              <span class="sr-only">{isLoading() ? 'Refreshing tee times' : 'Refresh tee times'}</span>
-            </button>
+            <span>Results for {getSearchedDayLabel()} • {filteredTeeTimes().length}</span>
+            <div class="results-actions">
+              <Select.Root
+                collection={courseCollection()}
+                value={[selectedCourseId()]}
+                onValueChange={(details) => setSelectedCourseId(details.value[0] || 'all')}
+              >
+                <Select.Label class="sr-only">Course</Select.Label>
+                <Select.Control>
+                  <Select.Trigger class="ark-select-trigger results-course-trigger">
+                    <span>{selectedCourseLabel()}</span>
+                    <Select.Indicator class="ark-select-indicator" />
+                  </Select.Trigger>
+                </Select.Control>
+                <Select.Positioner>
+                  <Select.Content class="ark-select-content">
+                    <Select.List>
+                      <For each={courseCollection().items}>
+                        {(course) => (
+                          <Select.Item item={course} class="ark-select-item">
+                            <Select.ItemText>{getCourseOptionLabel(course)}</Select.ItemText>
+                          </Select.Item>
+                        )}
+                      </For>
+                    </Select.List>
+                  </Select.Content>
+                </Select.Positioner>
+                <Select.HiddenSelect />
+              </Select.Root>
+              <button type="button" class="search-btn" onClick={loadTeeTimes} disabled={isLoading() || isSearching()}>
+                {isSearching() ? 'Searching...' : 'Search'}
+              </button>
+            </div>
           </div>
           <Show when={!isLoading()} fallback={<div class="loading">Loading tee times...</div>}>
             <Show when={!error()} fallback={<div class="empty-state">{error()}</div>}>
@@ -485,7 +512,7 @@ export default function Dashboard() {
                 each={filteredTeeTimes()}
                 fallback={
                   <div class="empty-state">
-                    No tee times available for this course and day
+                    {searchedDay() ? 'No tee times available for this course and day' : 'Choose filters and search tee times'}
                   </div>
                 }
               >
