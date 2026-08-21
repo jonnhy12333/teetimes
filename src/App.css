@@ -100,7 +100,7 @@ body::before {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
-  background: var(--panel);
+  background: #ffffff;
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px var(--shadow);
