@@ -144,6 +144,7 @@ export const courses: CourseConfig[] = [
     authType: 'none',
     latitude: 42.8628067,
     longitude: -71.0878971,
+    logoUrl: '/course-logos/granite-fields.png',
     easyTee: {
       slug: 'granite-fields-golf-club',
     },
@@ -159,6 +160,7 @@ export const courses: CourseConfig[] = [
     authType: 'none',
     latitude: 42.888,
     longitude: -71.314,
+    logoUrl: '/course-logos/hoodkroft.png',
     foreUp: {
       courseId: 18836,
       bookingClass: 5165,
@@ -176,6 +178,7 @@ export const courses: CourseConfig[] = [
     authType: 'none',
     latitude: 42.88058,
     longitude: -71.44939,
+    logoUrl: '/course-logos/hidden-creek.png',
     foreUp: {
       courseId: 20454,
       bookingClass: 14991,
@@ -209,6 +212,7 @@ export const courses: CourseConfig[] = [
     authType: 'none',
     latitude: 42.866,
     longitude: -71.477,
+    logoUrl: '/course-logos/passaconaway.png',
     foreUp: {
       courseId: 20363,
       bookingClass: 14986,
