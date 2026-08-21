@@ -314,6 +314,8 @@ body::before {
   position: relative;
 }
 
+.mobile-sticky-controls { display: contents; }
+
 .board-heading {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -1065,7 +1067,18 @@ a.weather-chip:focus-visible {
   .board-heading { align-items: end; gap: 8px; grid-template-columns: minmax(0, 1fr) auto; }
   .board-heading > div:first-child { grid-column: 1; grid-row: 1; min-width: 0; }
   .board-heading .board-actions { gap: 8px; grid-column: 2; grid-row: 1; }
-  .players-filter { margin-bottom: 14px; position: static; transform: none; width: 100%; }
+  .mobile-sticky-controls {
+    background: var(--bg);
+    border-bottom: 1px solid var(--divider);
+    display: block;
+    margin: -8px 0 12px;
+    padding: 8px 8px 10px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .mobile-sticky-controls .board-heading { margin-bottom: 10px; }
+  .players-filter { margin-bottom: 0; position: static; transform: none; width: 100%; }
   .players-filter > div { width: 100%; }
   .players-filter button { flex: 1; min-width: 0; }
   .date-display { font-size: 20px; }
