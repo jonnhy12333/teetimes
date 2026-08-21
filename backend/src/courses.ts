@@ -191,7 +191,7 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'ForeUP',
     bookingUrl: 'https://foreupsoftware.com/index.php/booking/21799/8917#/teetimes?merchant_id=21799',
     authType: 'none',
-    logoUrl: '/course-logos/hidden-valley.jpg',
+    logoUrl: '/course-logos/hidden-valley.png',
     foreUp: {
       courseId: 21799,
       bookingClass: 11772,
@@ -245,6 +245,7 @@ export const courses: CourseConfig[] = [
     authType: 'none',
     latitude: 42.8192,
     longitude: -71.3124,
+    logoUrl: '/course-logos/windham-cc.png',
     teeItUp: {
       facilityId: 15931,
       alias: 'windham-country',
