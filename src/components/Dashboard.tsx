@@ -165,6 +165,11 @@ function getWeatherForecastUrl(course: Course) {
 }
 
 export default function Dashboard() {
+  const savedTheme = localStorage.getItem('theme')
+  const initialTheme = savedTheme === 'dark' || savedTheme === 'light'
+    ? savedTheme
+    : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  const [theme, setTheme] = createSignal<'light' | 'dark'>(initialTheme)
   const dayOptions = getDayOptions()
   const dayCollection = createListCollection({
     items: dayOptions,
@@ -180,6 +185,11 @@ export default function Dashboard() {
   const [weatherByCourse, setWeatherByCourse] = createSignal<Record<string, WeatherHour[]>>({})
   const [isLoading, setIsLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
+
+  createEffect(() => {
+    document.documentElement.dataset.theme = theme()
+    localStorage.setItem('theme', theme())
+  })
 
   const sortedCourses = createMemo(() => {
     return [...courses()].sort((first, second) => first.name.localeCompare(second.name))
@@ -324,12 +334,19 @@ export default function Dashboard() {
     return dayOptions.find((dayOption) => dayOption.value === selectedDay())?.label || 'Today'
   }
 
+  const toggleTheme = () => {
+    setTheme(theme() === 'dark' ? 'light' : 'dark')
+  }
+
   return (
     <div class="container">
       <div class="dashboard">
         {/* Header */}
         <div class="header">
           <h1>⛳ Tee Times</h1>
+          <button type="button" class="theme-toggle-btn" onClick={toggleTheme}>
+            {theme() === 'dark' ? 'Light' : 'Dark'}
+          </button>
         </div>
 
         <div class="filters-panel">
