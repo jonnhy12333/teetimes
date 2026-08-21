@@ -387,7 +387,7 @@ body::before {
 
 .course-menu-popover button:hover:not(:disabled) { background: var(--panel-muted); }
 .course-menu-popover button:disabled { color: var(--subtle); cursor: not-allowed; opacity: .5; }
-.course-menu-popover .remove-course { color: var(--danger); }
+.course-menu-popover .remove-course { border-top: 1px solid var(--divider); border-radius: 0 0 6px 6px; color: var(--danger); margin-top: 4px; padding-top: 10px; }
 .menu-empty { color: var(--subtle); font-size: 13px; padding: 9px 10px; white-space: nowrap; }
 
 .add-course-card {
@@ -397,7 +397,7 @@ body::before {
   border-radius: 12px;
   display: flex;
   justify-content: center;
-  min-height: 276px;
+  min-height: 342px;
   position: relative;
 }
 
@@ -470,7 +470,6 @@ body::before {
   box-shadow: 0 2px 8px var(--shadow);
   display: flex;
   flex-direction: column;
-  min-height: 276px;
   min-width: 0;
   overflow: visible;
 }

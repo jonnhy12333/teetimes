@@ -83,8 +83,8 @@ export default function Dashboard() {
     return true
   }))
   const timesFor = (id: string) => visibleTimes().filter((tee) => tee.courseId === id)
-  const displayedTimesFor = (id: string) => expandedCourseIds().includes(id) ? timesFor(id) : timesFor(id).slice(0, 12)
-  const remainingTimesFor = (id: string) => Math.max(0, timesFor(id).length - 12)
+  const displayedTimesFor = (id: string) => expandedCourseIds().includes(id) ? timesFor(id) : timesFor(id).slice(0, 24)
+  const remainingTimesFor = (id: string) => Math.max(0, timesFor(id).length - 24)
   const toggleCourse = (id: string) => setExpandedCourseIds((ids) => ids.includes(id) ? ids.filter((courseId) => courseId !== id) : [...ids, id])
   const weatherForCourse = (courseId: string) => {
     const hours = weather()[courseId] || []
@@ -178,12 +178,38 @@ export default function Dashboard() {
     const next = [...ids]; [next[index], next[nextIndex]] = [next[nextIndex], next[index]]
     return next
   })
+  const moveCourseToEdge = (courseId: string, edge: 'top' | 'bottom') => setSelectedCourseIds((ids) => {
+    const remaining = ids.filter((id) => id !== courseId)
+    return edge === 'top' ? [courseId, ...remaining] : [...remaining, courseId]
+  })
   const removeCourse = (courseId: string) => setSelectedCourseIds((ids) => ids.filter((id) => id !== courseId))
+  const loadAddedCourse = async (course: Course, date: string) => {
+    const request = loadRequest
+    const isCurrent = () => request === loadRequest && day() === date && selectedCourseIds().includes(course.id)
+    setLoadingCourseIds((ids) => ids.includes(course.id) ? ids : [...ids, course.id])
+    setFailed((ids) => ids.filter((id) => id !== course.id))
+    try {
+      const [teeTimeResponse, weatherResponse] = await Promise.all([
+        fetch(`${apiBaseUrl}/api/courses/${course.id}/tee-times?date=${date}`),
+        course.latitude && course.longitude ? fetch(`${apiBaseUrl}/api/courses/${course.id}/weather?date=${date}`) : Promise.resolve(null),
+      ])
+      if (!teeTimeResponse.ok) throw new Error()
+      const times = await teeTimeResponse.json() as TeeTime[]
+      if (!isCurrent()) return
+      setTeeTimes((current) => [...current.filter((tee) => tee.courseId !== course.id), ...times].sort((a, b) => timeValue(a.time) - timeValue(b.time)))
+      if (weatherResponse?.ok) {
+        const forecast = await weatherResponse.json() as { hourly?: WeatherHour[] }
+        if (isCurrent()) setWeather((current) => ({ ...current, [course.id]: forecast.hourly || [] }))
+      }
+    } catch {
+      if (isCurrent()) setFailed((ids) => [...ids.filter((id) => id !== course.id), course.id])
+    } finally {
+      if (request === loadRequest) setLoadingCourseIds((ids) => ids.filter((id) => id !== course.id))
+    }
+  }
   const addCourse = (course: Course) => {
-    const nextIds = [...selectedCourseIds(), course.id]
-    setSelectedCourseIds(nextIds)
-    const nextCourses = nextIds.map((id) => courses().find((item) => item.id === id)).filter((item): item is Course => Boolean(item))
-    void loadBoard(day(), nextCourses)
+    setSelectedCourseIds((ids) => [...ids, course.id])
+    void loadAddedCourse(course, day())
   }
 
   return <div class="container"><div class="dashboard">
@@ -192,7 +218,7 @@ export default function Dashboard() {
       <section class="course-board" aria-busy={loading()}>
         <div class="board-heading"><div><p>Available tee times</p><div class="board-date-nav"><button type="button" class="date-arrow" disabled={isToday()} onClick={() => stepDay(-1)} aria-label="Previous day">‹</button><CalendarPicker value={day()} label={dayLabel()} onChange={(value) => { setDay(value); void loadBoard(value) }} /><button type="button" class="date-arrow" onClick={() => stepDay(1)} aria-label="Next day">›</button></div></div><label class="theme-switch"><input type="checkbox" checked={theme() === 'dark'} onChange={() => setTheme(theme() === 'dark' ? 'light' : 'dark')} aria-label="Toggle dark mode" /><span class="theme-switch-track"><span class="theme-switch-thumb" /></span><span class="theme-switch-text">{theme() === 'dark' ? 'Dark' : 'Light'}</span></label></div>
         <div class="course-grid"><For each={displayedCourses()}>{(course, index) => <article class="course-card">
-          <header class="course-card-header"><div class="course-avatar"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div><div class="course-card-title"><span class="course-name">{course.name}</span><p>{course.city}, {course.state}</p></div><Show when={weatherForCourse(course.id)}>{(forecast) => <span class="course-weather"><span aria-hidden="true">{forecast().icon}</span>{forecast().temperature}</span>}</Show><div class="course-options" data-menu-root><button type="button" class="course-options-trigger" aria-label={`Manage ${course.name}`} aria-expanded={openMenu() === course.id} onClick={() => setOpenMenu(openMenu() === course.id ? null : course.id)}>•••</button><Show when={openMenu() === course.id}><div class="course-menu-popover"><button type="button" disabled={index() === 0} onClick={() => { moveCourse(course.id, -1); setOpenMenu(null) }}>Move up</button><button type="button" disabled={index() === displayedCourses().length - 1} onClick={() => { moveCourse(course.id, 1); setOpenMenu(null) }}>Move down</button><button type="button" class="remove-course" onClick={() => { removeCourse(course.id); setOpenMenu(null) }}>Remove course</button></div></Show></div></header>
+          <header class="course-card-header"><div class="course-avatar"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div><div class="course-card-title"><span class="course-name">{course.name}</span><p>{course.city}, {course.state}</p></div><Show when={weatherForCourse(course.id)}>{(forecast) => <span class="course-weather"><span aria-hidden="true">{forecast().icon}</span>{forecast().temperature}</span>}</Show><div class="course-options" data-menu-root><button type="button" class="course-options-trigger" aria-label={`Manage ${course.name}`} aria-expanded={openMenu() === course.id} onClick={() => setOpenMenu(openMenu() === course.id ? null : course.id)}>•••</button><Show when={openMenu() === course.id}><div class="course-menu-popover"><button type="button" disabled={index() === 0} onClick={() => { moveCourseToEdge(course.id, 'top'); setOpenMenu(null) }}>Move to top</button><button type="button" disabled={index() === 0} onClick={() => { moveCourse(course.id, -1); setOpenMenu(null) }}>Move up</button><button type="button" disabled={index() === displayedCourses().length - 1} onClick={() => { moveCourse(course.id, 1); setOpenMenu(null) }}>Move down</button><button type="button" disabled={index() === displayedCourses().length - 1} onClick={() => { moveCourseToEdge(course.id, 'bottom'); setOpenMenu(null) }}>Move to bottom</button><button type="button" class="remove-course" onClick={() => { removeCourse(course.id); setOpenMenu(null) }}>Remove course</button></div></Show></div></header>
           <div class="tee-time-chips"><Show when={!loadingCourseIds().includes(course.id)} fallback={<div class="course-loading"><span class="loading-spinner" />Loading tee times...</div>}><Show when={course.status !== 'unsupported'} fallback={<div class="course-empty">Online tee times aren’t available yet.</div>}><Show when={!failed().includes(course.id)} fallback={<div class="course-empty">Couldn’t load this course. Try another day.</div>}><For each={displayedTimesFor(course.id)} fallback={<div class="course-empty">No tee times available for this day.</div>}>{(tee) => <a class="tee-time-chip" href={tee.bookingUrl} target="_blank" rel="noreferrer"><strong>{tee.time}</strong><span>{tee.price !== undefined ? `$${tee.price}` : `${tee.holes} holes`}{tee.availableSpots ? ` · ${tee.availableSpots} ${tee.availableSpots === 1 ? 'spot' : 'spots'}` : ''}</span></a>}</For></Show></Show></Show></div>
           <div class="course-card-actions">
             <Show when={remainingTimesFor(course.id) > 0}>
