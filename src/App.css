@@ -524,7 +524,83 @@ a.weather-chip:focus-visible {
 }
 
 @media (max-width: 700px) {
+  .container {
+    padding: 12px;
+  }
+
+  .dashboard {
+    padding: 8px 0 16px;
+  }
+
+  .header {
+    margin-bottom: 14px;
+    padding: 16px;
+  }
+
+  .header h1 {
+    font-size: 24px;
+  }
+
   .filters-panel {
     grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+
+  .ark-select-trigger,
+  .segmented-control-item,
+  .time-period-item {
+    min-height: 44px;
+  }
+
+  .time-period-control {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .time-period-item:nth-of-type(2) {
+    border-top-right-radius: 8px;
+  }
+
+  .time-period-item:nth-last-child(2) {
+    border-bottom-left-radius: 8px;
+    border-left: 1px solid #ddd;
+  }
+
+  .tee-times-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  .refresh-btn {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .tee-time-item {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .tee-time-main {
+    align-items: flex-start;
+  }
+
+  .tee-time-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 0;
+    line-height: 1.45;
+  }
+
+  .book-btn {
+    display: block;
+    width: 100%;
+    text-align: center;
   }
 }
