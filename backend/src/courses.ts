@@ -337,7 +337,6 @@ async function getEasyTeeTimes(course: CourseConfig, date: string): Promise<TeeT
     const playerRange = item.find('h6.text-muted').first().text().trim()
     const priceText = item.find('.col-auto h3').first().text().trim()
     const holesText = item.find('.badge').first().text().trim()
-    const reservePath = item.find('a[href*="/book/"]').first().attr('href')
     const spotsMatch = playerRange.match(/-\s*(\d+)\s+golfers?/i) || playerRange.match(/(\d+)\s+golfers?/i)
     const holesMatch = holesText.match(/(9|18)/)
     const priceMatch = priceText.match(/\$([0-9]+(?:\.[0-9]+)?)/)
@@ -355,7 +354,7 @@ async function getEasyTeeTimes(course: CourseConfig, date: string): Promise<TeeT
       holes: Number(holesMatch[1]) as 9 | 18,
       price: priceMatch ? Number(priceMatch[1]) : undefined,
       availableSpots: spotsMatch ? Number(spotsMatch[1]) : undefined,
-      bookingUrl: reservePath ? new URL(reservePath, 'https://app.easyteegolf.com').toString() : course.bookingUrl,
+      bookingUrl: course.bookingUrl,
       authRequired: false,
       authType: course.authType,
     }
