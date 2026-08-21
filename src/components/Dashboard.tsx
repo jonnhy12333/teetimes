@@ -41,14 +41,6 @@ interface WeatherHour {
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || ''
 
-const dayOptions = [
-  { value: 'today', label: 'Today', offset: 0 },
-  { value: 'tomorrow', label: 'Tomorrow', offset: 1 },
-  { value: 'next-2', label: 'In 2 Days', offset: 2 },
-  { value: 'next-3', label: 'In 3 Days', offset: 3 },
-  { value: 'next-7', label: 'In 7 Days', offset: 7 },
-]
-
 const playerOptions = ['1', '2', '3', '4', 'any']
 const timePeriodOptions = ['morning', 'afternoon', 'evening', 'any']
 
@@ -59,17 +51,41 @@ const timePeriodRanges: Record<string, { start: number; end: number } | null> = 
   any: null,
 }
 
-const dayCollection = createListCollection({
-  items: dayOptions,
-  itemToString: (item) => item.label,
-  itemToValue: (item) => item.value,
-})
-
-function getDateForDay(day: string) {
-  const option = dayOptions.find((dayOption) => dayOption.value === day) || dayOptions[0]
-  const date = new Date()
-  date.setDate(date.getDate() + option.offset)
+function formatDateValue(date: Date) {
   return date.toISOString().slice(0, 10)
+}
+
+function getDayOptionLabel(date: Date, offset: number) {
+  const dateLabel = date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+
+  if (offset === 0) {
+    return `Today, ${dateLabel}`
+  }
+
+  if (offset === 1) {
+    return `Tomorrow, ${dateLabel}`
+  }
+
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' })
+
+  return `${weekday}, ${dateLabel}`
+}
+
+function getDayOptions() {
+  const date = new Date()
+
+  return Array.from({ length: 7 }, (_, offset) => {
+    const optionDate = new Date(date)
+    optionDate.setDate(date.getDate() + offset)
+
+    return {
+      value: formatDateValue(optionDate),
+      label: getDayOptionLabel(optionDate, offset),
+    }
+  })
 }
 
 function getAuthLabel(authType: Course['authType']) {
@@ -148,7 +164,13 @@ function getWeatherForecastUrl(course: Course) {
 }
 
 export default function Dashboard() {
-  const [selectedDay, setSelectedDay] = createSignal('today')
+  const dayOptions = getDayOptions()
+  const dayCollection = createListCollection({
+    items: dayOptions,
+    itemToString: (item) => item.label,
+    itemToValue: (item) => item.value,
+  })
+  const [selectedDay, setSelectedDay] = createSignal(dayOptions[0].value)
   const [selectedCourseId, setSelectedCourseId] = createSignal('all')
   const [selectedPlayers, setSelectedPlayers] = createSignal('any')
   const [selectedTimePeriod, setSelectedTimePeriod] = createSignal('any')
@@ -242,7 +264,7 @@ export default function Dashboard() {
   }
 
   const loadTeeTimes = async () => {
-    const date = getDateForDay(selectedDay())
+    const date = selectedDay()
     setIsLoading(true)
     setError(null)
     setWeatherByCourse({})
@@ -314,7 +336,7 @@ export default function Dashboard() {
             <Select.Root
               collection={dayCollection}
               value={[selectedDay()]}
-              onValueChange={(details) => setSelectedDay(details.value[0] || 'today')}
+              onValueChange={(details) => setSelectedDay(details.value[0] || dayOptions[0].value)}
             >
               <Select.Label>Day</Select.Label>
               <Select.Control>
