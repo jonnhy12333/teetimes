@@ -2,10 +2,6 @@ import { Select, createListCollection } from '@ark-ui/solid/select'
 import { SegmentGroup } from '@ark-ui/solid/segment-group'
 import { createEffect, createMemo, createSignal, For, Show } from 'solid-js'
 
-interface DashboardProps {
-  user: { email: string; name: string }
-}
-
 interface Course {
   id: string
   name: string
@@ -151,7 +147,7 @@ function getWeatherForecastUrl(course: Course) {
   return `https://weather.com/weather/hourbyhour/l/${course.latitude},${course.longitude}`
 }
 
-export default function Dashboard(props: DashboardProps) {
+export default function Dashboard() {
   const [selectedDay, setSelectedDay] = createSignal('today')
   const [selectedCourseId, setSelectedCourseId] = createSignal('all')
   const [selectedPlayers, setSelectedPlayers] = createSignal('any')
@@ -252,9 +248,7 @@ export default function Dashboard(props: DashboardProps) {
     setWeatherByCourse({})
 
     try {
-      const coursesResponse = await fetch(`${apiBaseUrl}/api/courses`, {
-        credentials: 'include',
-      })
+      const coursesResponse = await fetch(`${apiBaseUrl}/api/courses`)
 
       if (!coursesResponse.ok) {
         throw new Error('Unable to load course configs')
@@ -263,9 +257,7 @@ export default function Dashboard(props: DashboardProps) {
       const nextCourses: Course[] = await coursesResponse.json()
       const teeTimeLists = await Promise.all(
         nextCourses.map(async (course) => {
-          const response = await fetch(`${apiBaseUrl}/api/courses/${course.id}/tee-times?date=${date}`, {
-            credentials: 'include',
-          })
+          const response = await fetch(`${apiBaseUrl}/api/courses/${course.id}/tee-times?date=${date}`)
 
           if (!response.ok) {
             return []
@@ -278,9 +270,7 @@ export default function Dashboard(props: DashboardProps) {
         nextCourses
           .filter((course) => course.latitude && course.longitude)
           .map(async (course) => {
-            const response = await fetch(`${apiBaseUrl}/api/courses/${course.id}/weather?date=${date}`, {
-              credentials: 'include',
-            })
+            const response = await fetch(`${apiBaseUrl}/api/courses/${course.id}/weather?date=${date}`)
 
             if (!response.ok) {
               return [course.id, []] as const
@@ -307,10 +297,6 @@ export default function Dashboard(props: DashboardProps) {
     void loadTeeTimes()
   })
 
-  const handleLogout = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/logout`
-  }
-
   const getDayLabel = () => {
     return dayOptions.find((dayOption) => dayOption.value === selectedDay())?.label || 'Today'
   }
@@ -321,12 +307,6 @@ export default function Dashboard(props: DashboardProps) {
         {/* Header */}
         <div class="header">
           <h1>⛳ Tee Times</h1>
-          <div class="user-info">
-            <span>{props.user.name}</span>
-            <button class="logout-btn" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
         </div>
 
         <div class="filters-panel">

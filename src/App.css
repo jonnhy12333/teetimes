@@ -37,59 +37,6 @@ body::before {
   padding: 20px;
 }
 
-/* Login Page */
-.login-container {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #2d5016 0%, #4CAF50 100%);
-}
-
-.login-box {
-  background: white;
-  padding: 40px;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  text-align: center;
-  max-width: 400px;
-  width: 100%;
-}
-
-.login-box h1 {
-  color: #333;
-  margin-bottom: 10px;
-  font-size: 32px;
-}
-
-.login-box p {
-  color: #666;
-  margin-bottom: 30px;
-  font-size: 16px;
-}
-
-.google-login-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px 20px;
-  background: white;
-  border: 2px solid #ddd;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-  color: #333;
-}
-
-.google-login-btn:hover {
-  border-color: #4CAF50;
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
-}
-
 /* Dashboard */
 .dashboard {
   padding: 20px 0;

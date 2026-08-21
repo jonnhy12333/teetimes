@@ -6,16 +6,15 @@
 golf/
 ├── src/                    # Solid.js Frontend
 │   ├── components/
-│   │   ├── Login.tsx      # Login page with Google OAuth
-│   │   └── Dashboard.tsx  # Main app with day selector
+│   │   └── Dashboard.tsx  # Main app with filters and tee-time list
 │   ├── App.tsx
 │   ├── index.css
 │   ├── App.css
 │   └── main.tsx
 ├── backend/               # Express.js API
 │   ├── src/
-│   │   ├── index.ts       # Main server with OAuth setup
-│   │   └── courses.ts     # Course config registry and demo tee times
+│   │   ├── index.ts       # Public API server
+│   │   └── courses.ts     # Course config registry and provider adapters
 │   ├── package.json
 │   └── tsconfig.json
 ├── package.json           # Frontend dependencies
@@ -25,19 +24,14 @@ golf/
 ## What's Been Built
 
 ### Frontend (Solid.js)
-✅ Login page with "Login with Gmail" button
-✅ Dashboard with user info and logout
-✅ Day selector dropdown (Today, Tomorrow, etc.)
-✅ Placeholder tee times list with course details
+✅ Public dashboard with date, course, player, and time-of-day filters
+✅ Tee-time list with course links, booking links, and weather chips
 ✅ Responsive UI with golf theme
 
 ### Backend (Node.js/Express)
-✅ Google OAuth integration setup
-✅ Session management
-✅ Protected API routes (requires authentication)
 ✅ Course config registry with auth metadata
-✅ Placeholder tee-time adapter for configured courses
-⏳ Database schema (to be created)
+✅ Public API routes for courses, tee times, and weather
+✅ Provider adapters for ForeUP, TeeItUp, Easy Tee, and Chronogolf
 
 ## Adding Courses
 
@@ -58,45 +52,19 @@ Start by adding a course entry in `backend/src/courses.ts`:
 
 Use `authType: 'unknown'` until we confirm whether tee times are public, require a member login, or need a connected third-party account. Once a provider is known, replace the demo tee-time data with a provider-specific fetcher instead of putting scraping/API logic directly in the route.
 
-## Next Steps
+## Local Setup
 
-### 1. Get Google OAuth Credentials
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project
-3. Enable "Google+ API"
-4. Create OAuth 2.0 credentials (Web application)
-   - Authorized JavaScript origins: `http://localhost:5173`
-   - Authorized redirect URIs: `http://localhost:5000/auth/google/callback`
-5. Copy Client ID and Client Secret
-
-### 2. Set Up Database
-```bash
-# Install PostgreSQL if not already installed
-# Create database:
-createdb golf_tee_times
-
-# Then: Add DB schema (coming next)
-```
-
-### 3. Setup Backend
+### Backend
 ```bash
 cd backend
 npm install
-cp .env.example .env
-# Edit .env with your Google credentials and DB connection
 npm run dev
 ```
 
-### 4. Setup Frontend (already running)
+### Frontend
 ```bash
 npm run dev
 ```
-
-### 5. Test Flow
-1. Frontend runs on http://localhost:5173
-2. Click "Login with Gmail"
-3. Redirects to http://localhost:5000/auth/google
-4. Should redirect back to dashboard (once DB is set up)
 
 ## Once You Give Me the Course Name
 
