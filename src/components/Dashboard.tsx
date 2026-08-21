@@ -444,9 +444,13 @@ export default function Dashboard(props: DashboardProps) {
                 {(teeTime) => (
                   <div class="tee-time-item">
                     <div class="tee-time-main">
-                      <div class="course-avatar" aria-hidden="true">{teeTime.courseName.charAt(0)}</div>
+                      <a class="course-avatar" href={teeTime.bookingUrl} target="_blank" rel="noreferrer" aria-label={`Open ${teeTime.courseName}`}>
+                        {teeTime.courseName.charAt(0)}
+                      </a>
                       <div>
-                        <div class="course-name">{teeTime.courseName}</div>
+                        <a class="course-name" href={teeTime.bookingUrl} target="_blank" rel="noreferrer">
+                          {teeTime.courseName}
+                        </a>
                         <div class="tee-time-details">
                           {teeTime.time} • {teeTime.holes} holes
                           {teeTime.availableSpots && <span> • {teeTime.availableSpots} spots</span>}

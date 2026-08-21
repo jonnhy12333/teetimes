@@ -413,13 +413,30 @@ body::before {
   color: #0b7285;
   font-weight: 800;
   font-size: 16px;
+  text-decoration: none;
+  transition: background-color 0.2s, color 0.2s, transform 0.2s;
+}
+
+.course-avatar:hover,
+.course-avatar:focus-visible {
+  background: #0b7285;
+  color: white;
+  transform: translateY(-1px);
 }
 
 .course-name {
+  display: inline-block;
   font-weight: 600;
   color: #333;
   font-size: 16px;
   margin-bottom: 5px;
+  text-decoration: none;
+}
+
+.course-name:hover,
+.course-name:focus-visible {
+  color: #2d5016;
+  text-decoration: underline;
 }
 
 .tee-time-details {
