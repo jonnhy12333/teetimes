@@ -14,6 +14,7 @@ export interface CourseConfig {
   status?: 'active' | 'unsupported'
   latitude?: number
   longitude?: number
+  timeZone?: string
   logoUrl?: string
   foreUp?: {
     courseId: number
@@ -229,6 +230,7 @@ export const courses: CourseConfig[] = [
     authType: 'none',
     latitude: 42.8192,
     longitude: -71.3124,
+    timeZone: 'America/New_York',
     logoUrl: '/course-logos/windham-cc.png',
     teeItUp: {
       facilityId: 15931,
@@ -247,7 +249,7 @@ function formatDateForForeUp(date: string) {
   return `${month}-${day}-${year}`
 }
 
-function formatTimeLabel(value: string) {
+function formatTimeLabel(value: string, timeZone?: string) {
   const date = new Date(value.replace(' ', 'T'))
 
   if (Number.isNaN(date.getTime())) {
@@ -257,6 +259,7 @@ function formatTimeLabel(value: string) {
   return date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone,
   })
 }
 
@@ -456,7 +459,7 @@ async function getTeeItUpTeeTimes(course: CourseConfig, date: string): Promise<T
       id: `${course.id}-${date}-${primaryRate?._id || index}`,
       courseId: course.id,
       courseName: course.name,
-      time: formatTimeLabel(teeTime.teetime),
+      time: formatTimeLabel(teeTime.teetime, course.timeZone),
       date,
       holes: holes.length > 1 ? '9/18' : holes[0],
       price: prices.length ? Math.min(...prices) : undefined,
