@@ -147,24 +147,12 @@ function getTeeTimeDate(teeTime: TeeTime) {
   return new Date(`${teeTime.date}T${String(normalizedHour).padStart(2, '0')}:${minuteText}:00`)
 }
 
-function getWeatherForecastUrl(course: Course, teeTime: TeeTime) {
+function getWeatherForecastUrl(course: Course) {
   if (!course.latitude || !course.longitude) {
     return null
   }
 
-  const params = new URLSearchParams({
-    latitude: String(course.latitude),
-    longitude: String(course.longitude),
-    current: 'temperature_2m,weather_code,wind_speed_10m',
-    hourly: 'temperature_2m,weather_code,wind_speed_10m,precipitation_probability',
-    temperature_unit: 'fahrenheit',
-    wind_speed_unit: 'mph',
-    timezone: 'America/New_York',
-    start_date: teeTime.date,
-    end_date: teeTime.date,
-  })
-
-  return `https://open-meteo.com/en/docs?${params.toString()}`
+  return `https://weather.com/weather/hourbyhour/l/${course.latitude},${course.longitude}`
 }
 
 export default function Dashboard(props: DashboardProps) {
@@ -496,7 +484,7 @@ export default function Dashboard(props: DashboardProps) {
                                 {(course) => (
                                   <a
                                     class="weather-chip"
-                                    href={getWeatherForecastUrl(course(), teeTime) || undefined}
+                                    href={getWeatherForecastUrl(course()) || undefined}
                                     target="_blank"
                                     rel="noreferrer"
                                   >
