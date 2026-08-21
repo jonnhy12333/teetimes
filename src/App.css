@@ -18,6 +18,7 @@
   --accent: #4CAF50;
   --accent-hover: #45a049;
   --accent-dark: #2d5016;
+  --accent-contrast: #102414;
   --info-bg: #e7f5ff;
   --info-text: #0b7285;
   --warning-bg: #fff3bf;
@@ -41,6 +42,7 @@
   --accent: #5fc86b;
   --accent-hover: #50b75c;
   --accent-dark: #a8e6ad;
+  --accent-contrast: #102414;
   --info-bg: #16323a;
   --info-text: #8bd8e8;
   --warning-bg: #3a3216;
@@ -389,7 +391,7 @@ body::before {
 
 .tee-times-header {
   background-color: var(--accent);
-  color: white;
+  color: var(--accent-contrast);
   padding: 15px 20px;
   font-weight: 600;
   font-size: 18px;
@@ -400,9 +402,9 @@ body::before {
 }
 
 .refresh-btn {
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
+  border: 1px solid rgba(16, 36, 20, 0.42);
+  background: rgba(16, 36, 20, 0.08);
+  color: var(--accent-contrast);
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
@@ -412,7 +414,7 @@ body::before {
 
 .refresh-btn:hover:not(:disabled),
 .refresh-btn:focus-visible:not(:disabled) {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(16, 36, 20, 0.14);
 }
 
 .refresh-btn:disabled {
