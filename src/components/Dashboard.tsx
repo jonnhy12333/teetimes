@@ -249,7 +249,7 @@ export default function Dashboard(props: DashboardProps) {
     return courses().find((course) => course.id === teeTime.courseId)
   }
 
-  createEffect(async () => {
+  const loadTeeTimes = async () => {
     const date = getDateForDay(selectedDay())
     setIsLoading(true)
     setError(null)
@@ -304,6 +304,11 @@ export default function Dashboard(props: DashboardProps) {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  createEffect(() => {
+    void selectedDay()
+    void loadTeeTimes()
   })
 
   const handleLogout = () => {
@@ -457,7 +462,10 @@ export default function Dashboard(props: DashboardProps) {
         {/* Tee Times List */}
         <div class="tee-times">
           <div class="tee-times-header">
-            Available Tee Times ({getDayLabel()}) • {filteredTeeTimes().length}
+            <span>Available Tee Times ({getDayLabel()}) • {filteredTeeTimes().length}</span>
+            <button type="button" class="refresh-btn" onClick={loadTeeTimes} disabled={isLoading()}>
+              {isLoading() ? 'Refreshing...' : 'Refresh'}
+            </button>
           </div>
           <Show when={!isLoading()} fallback={<div class="loading">Loading tee times...</div>}>
             <Show when={!error()} fallback={<div class="empty-state">{error()}</div>}>
