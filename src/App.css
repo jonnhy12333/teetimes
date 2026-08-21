@@ -447,6 +447,12 @@ body::before {
 .weather-chip {
   color: #2d5016;
   font-weight: 600;
+  text-decoration: none;
+}
+
+a.weather-chip:hover,
+a.weather-chip:focus-visible {
+  text-decoration: underline;
 }
 
 .book-btn {

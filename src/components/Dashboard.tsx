@@ -147,6 +147,26 @@ function getTeeTimeDate(teeTime: TeeTime) {
   return new Date(`${teeTime.date}T${String(normalizedHour).padStart(2, '0')}:${minuteText}:00`)
 }
 
+function getWeatherForecastUrl(course: Course, teeTime: TeeTime) {
+  if (!course.latitude || !course.longitude) {
+    return null
+  }
+
+  const params = new URLSearchParams({
+    latitude: String(course.latitude),
+    longitude: String(course.longitude),
+    current: 'temperature_2m,weather_code,wind_speed_10m',
+    hourly: 'temperature_2m,weather_code,wind_speed_10m,precipitation_probability',
+    temperature_unit: 'fahrenheit',
+    wind_speed_unit: 'mph',
+    timezone: 'America/New_York',
+    start_date: teeTime.date,
+    end_date: teeTime.date,
+  })
+
+  return `https://open-meteo.com/en/docs?${params.toString()}`
+}
+
 export default function Dashboard(props: DashboardProps) {
   const [selectedDay, setSelectedDay] = createSignal('today')
   const [selectedCourseId, setSelectedCourseId] = createSignal('all')
@@ -213,6 +233,10 @@ export default function Dashboard(props: DashboardProps) {
 
       return currentDifference < closestDifference ? weatherHour : closestWeather
     }, null)
+  }
+
+  const getCourseForTeeTime = (teeTime: TeeTime) => {
+    return courses().find((course) => course.id === teeTime.courseId)
   }
 
   createEffect(async () => {
@@ -459,11 +483,29 @@ export default function Dashboard(props: DashboardProps) {
                           {teeTime.authRequired && <span> • {getAuthLabel(teeTime.authType)}</span>}
                           <Show when={getWeatherForTeeTime(teeTime)}>
                             {(weather) => (
-                              <span class="weather-chip">
-                                • {getWeatherIcon(weather().weatherCode)}
-                                {weather().temperature !== undefined && <span> {Math.round(weather().temperature!)}°F</span>}
-                                {weather().windSpeed !== undefined && <span> • wind {Math.round(weather().windSpeed!)} mph</span>}
-                              </span>
+                              <Show
+                                when={getCourseForTeeTime(teeTime)}
+                                fallback={
+                                  <span class="weather-chip">
+                                    • {getWeatherIcon(weather().weatherCode)}
+                                    {weather().temperature !== undefined && <span> {Math.round(weather().temperature!)}°F</span>}
+                                    {weather().windSpeed !== undefined && <span> • wind {Math.round(weather().windSpeed!)} mph</span>}
+                                  </span>
+                                }
+                              >
+                                {(course) => (
+                                  <a
+                                    class="weather-chip"
+                                    href={getWeatherForecastUrl(course(), teeTime) || undefined}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    • {getWeatherIcon(weather().weatherCode)}
+                                    {weather().temperature !== undefined && <span> {Math.round(weather().temperature!)}°F</span>}
+                                    {weather().windSpeed !== undefined && <span> • wind {Math.round(weather().windSpeed!)} mph</span>}
+                                  </a>
+                                )}
+                              </Show>
                             )}
                           </Show>
                         </div>
