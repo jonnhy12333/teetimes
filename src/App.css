@@ -379,23 +379,24 @@ body::before {
   width: 38px;
   height: 38px;
   border-radius: 999px;
+  border: 1px solid rgba(11, 114, 133, 0.18);
   display: flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  background: #e7f5ff;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
   color: #0b7285;
   font-weight: 800;
   font-size: 16px;
   text-decoration: none;
-  transition: background-color 0.2s, color 0.2s, transform 0.2s;
+  transition: box-shadow 0.2s, transform 0.2s;
 }
 
 .course-avatar:hover,
 .course-avatar:focus-visible {
-  background: #0b7285;
-  color: white;
-  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+  transform: scale(1.08);
 }
 
 .course-avatar img {
