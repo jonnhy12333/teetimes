@@ -183,6 +183,21 @@ export const courses: CourseConfig[] = [
     notes: 'Public ForeUP tee times. Booking may require a credit card.',
   },
   {
+    id: 'hidden-valley-rv-and-golf-park',
+    name: 'Hidden Valley RV & Golf Park',
+    city: 'Derry',
+    state: 'NH',
+    bookingSystem: 'ForeUP',
+    bookingUrl: 'https://foreupsoftware.com/index.php/booking/21799/8917#/teetimes?merchant_id=21799',
+    authType: 'none',
+    foreUp: {
+      courseId: 21799,
+      bookingClass: 11772,
+      scheduleId: 8917,
+    },
+    notes: 'Public ForeUP tee times. Coordinates still needed for weather.',
+  },
+  {
     id: 'passaconaway-country-club',
     name: 'Passaconaway Country Club',
     city: 'Litchfield',
