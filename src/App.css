@@ -376,8 +376,8 @@ body::before {
 }
 
 .course-avatar {
-  width: 38px;
-  height: 38px;
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
   border: 1px solid rgba(11, 114, 133, 0.18);
   display: flex;
@@ -396,7 +396,6 @@ body::before {
 .course-avatar:hover,
 .course-avatar:focus-visible {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
-  transform: scale(1.08);
 }
 
 .course-avatar img {
