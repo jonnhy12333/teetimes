@@ -40,6 +40,11 @@ interface WeatherHour {
   precipitationProbability?: number
 }
 
+interface ThemeSwitchProps {
+  checked: boolean
+  onChange: () => void
+}
+
 const apiBaseUrl = import.meta.env.VITE_API_URL || ''
 
 const playerOptions = ['1', '2', '3', '4', 'any']
@@ -162,6 +167,23 @@ function getWeatherForecastUrl(course: Course) {
   }
 
   return `https://weather.com/weather/hourbyhour/l/${course.latitude},${course.longitude}`
+}
+
+function ThemeSwitch(props: ThemeSwitchProps) {
+  return (
+    <label class="theme-switch">
+      <input
+        type="checkbox"
+        checked={props.checked}
+        onChange={props.onChange}
+        aria-label="Toggle dark mode"
+      />
+      <span class="theme-switch-track">
+        <span class="theme-switch-thumb" />
+      </span>
+      <span class="theme-switch-text">{props.checked ? 'Dark' : 'Light'}</span>
+    </label>
+  )
 }
 
 export default function Dashboard() {
@@ -344,9 +366,7 @@ export default function Dashboard() {
         {/* Header */}
         <div class="header">
           <h1>⛳ Tee Times</h1>
-          <button type="button" class="theme-toggle-btn" onClick={toggleTheme}>
-            {theme() === 'dark' ? 'Light' : 'Dark'}
-          </button>
+          <ThemeSwitch checked={theme() === 'dark'} onChange={toggleTheme} />
         </div>
 
         <div class="filters-panel">
