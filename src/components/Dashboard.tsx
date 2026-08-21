@@ -202,6 +202,24 @@ export default function Dashboard(props: DashboardProps) {
     return teeTimes().filter(teeTimeMatchesActiveFilters).length
   })
 
+  const getCourseOptionLabel = (course: Course | { id: string; name: string; status: 'active' }) => {
+    if (course.id === 'all') {
+      return `${course.name} (${allCoursesCount()})`
+    }
+
+    if (course.status === 'unsupported') {
+      return `${course.name} (Not available yet)`
+    }
+
+    return `${course.name} (${teeTimeCountsByCourse()[course.id] || 0})`
+  }
+
+  const selectedCourseLabel = createMemo(() => {
+    const selectedCourse = courseCollection().items.find((course) => course.id === selectedCourseId())
+
+    return selectedCourse ? getCourseOptionLabel(selectedCourse) : 'Select course'
+  })
+
   const filteredTeeTimes = createMemo(() => {
     return teeTimes().filter((teeTime) => {
       const matchesCourse = selectedCourseId() === 'all' || teeTime.courseId === selectedCourseId()
@@ -369,7 +387,7 @@ export default function Dashboard(props: DashboardProps) {
               <Select.Label>Course</Select.Label>
               <Select.Control>
                 <Select.Trigger class="ark-select-trigger">
-                  <Select.ValueText placeholder="Select course" />
+                  <span>{selectedCourseLabel()}</span>
                   <Select.Indicator class="ark-select-indicator" />
                 </Select.Trigger>
               </Select.Control>
@@ -379,13 +397,7 @@ export default function Dashboard(props: DashboardProps) {
                     <For each={courseCollection().items}>
                       {(course) => (
                         <Select.Item item={course} class="ark-select-item">
-                          <Select.ItemText>
-                            {course.name} {course.id === 'all'
-                              ? `(${allCoursesCount()})`
-                              : course.status === 'unsupported'
-                                ? '(Not available yet)'
-                                : `(${teeTimeCountsByCourse()[course.id] || 0})`}
-                          </Select.ItemText>
+                          <Select.ItemText>{getCourseOptionLabel(course)}</Select.ItemText>
                         </Select.Item>
                       )}
                     </For>
