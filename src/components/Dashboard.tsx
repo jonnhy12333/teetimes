@@ -443,23 +443,26 @@ export default function Dashboard(props: DashboardProps) {
               >
                 {(teeTime) => (
                   <div class="tee-time-item">
-                    <div>
-                      <div class="course-name">{teeTime.courseName}</div>
-                      <div class="tee-time-details">
-                        {teeTime.time} • {teeTime.holes} holes
-                        {teeTime.availableSpots && <span> • {teeTime.availableSpots} spots</span>}
-                        {teeTime.price && <span> • ${teeTime.price}</span>}
-                        {teeTime.cartFee && <span> • cart ${teeTime.cartFee}</span>}
-                        {teeTime.authRequired && <span> • {getAuthLabel(teeTime.authType)}</span>}
-                        <Show when={getWeatherForTeeTime(teeTime)}>
-                          {(weather) => (
-                            <span class="weather-chip">
-                              • {getWeatherIcon(weather().weatherCode)}
-                              {weather().temperature !== undefined && <span> {Math.round(weather().temperature!)}°F</span>}
-                              {weather().windSpeed !== undefined && <span> • wind {Math.round(weather().windSpeed!)} mph</span>}
-                            </span>
-                          )}
-                        </Show>
+                    <div class="tee-time-main">
+                      <div class="course-avatar" aria-hidden="true">{teeTime.courseName.charAt(0)}</div>
+                      <div>
+                        <div class="course-name">{teeTime.courseName}</div>
+                        <div class="tee-time-details">
+                          {teeTime.time} • {teeTime.holes} holes
+                          {teeTime.availableSpots && <span> • {teeTime.availableSpots} spots</span>}
+                          {teeTime.price && <span> • ${teeTime.price}</span>}
+                          {teeTime.cartFee && <span> • cart ${teeTime.cartFee}</span>}
+                          {teeTime.authRequired && <span> • {getAuthLabel(teeTime.authType)}</span>}
+                          <Show when={getWeatherForTeeTime(teeTime)}>
+                            {(weather) => (
+                              <span class="weather-chip">
+                                • {getWeatherIcon(weather().weatherCode)}
+                                {weather().temperature !== undefined && <span> {Math.round(weather().temperature!)}°F</span>}
+                                {weather().windSpeed !== undefined && <span> • wind {Math.round(weather().windSpeed!)} mph</span>}
+                              </span>
+                            )}
+                          </Show>
+                        </div>
                       </div>
                     </div>
                     <a class="book-btn" href={teeTime.bookingUrl} target="_blank" rel="noreferrer">
