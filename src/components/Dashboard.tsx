@@ -1,5 +1,4 @@
 import { Select, createListCollection } from '@ark-ui/solid/select'
-import { SegmentGroup } from '@ark-ui/solid/segment-group'
 import { createEffect, createMemo, createSignal, For, onMount, Show } from 'solid-js'
 
 interface Course {
@@ -47,8 +46,15 @@ interface ThemeSwitchProps {
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || ''
 
-const playerOptions = ['1', '2', '3', '4', 'any']
 const timePeriodOptions = ['morning', 'afternoon', 'evening', 'any']
+const timePeriodCollection = createListCollection({
+  items: timePeriodOptions.map((value) => ({
+    value,
+    label: value === 'any' ? 'Any Time' : value.charAt(0).toUpperCase() + value.slice(1),
+  })),
+  itemToString: (item) => item.label,
+  itemToValue: (item) => item.value,
+})
 
 const timePeriodRanges: Record<string, { start: number; end: number } | null> = {
   morning: { start: 6, end: 12 },
@@ -200,7 +206,6 @@ export default function Dashboard() {
   })
   const [selectedDay, setSelectedDay] = createSignal(dayOptions[0].value)
   const [selectedCourseId, setSelectedCourseId] = createSignal('all')
-  const [selectedPlayers, setSelectedPlayers] = createSignal('any')
   const [selectedTimePeriod, setSelectedTimePeriod] = createSignal('any')
   const [courses, setCourses] = createSignal<Course[]>([])
   const [teeTimes, setTeeTimes] = createSignal<TeeTime[]>([])
@@ -232,12 +237,10 @@ export default function Dashboard() {
 
   const teeTimeMatchesActiveFilters = (teeTime: TeeTime) => {
     const timeHour = Math.floor(getTimeSortValue(teeTime.time) / 60)
-    const playerCount = selectedPlayers() === 'any' ? null : Number(selectedPlayers())
     const timePeriodRange = timePeriodRanges[selectedTimePeriod()]
-    const matchesPlayers = playerCount === null || !teeTime.availableSpots || teeTime.availableSpots >= playerCount
     const matchesTime = !timePeriodRange || (timeHour >= timePeriodRange.start && timeHour < timePeriodRange.end)
 
-    return !isPastTeeTime(teeTime) && matchesPlayers && matchesTime
+    return !isPastTeeTime(teeTime) && matchesTime
   }
 
   const teeTimeCountsByCourse = createMemo(() => {
@@ -429,44 +432,6 @@ export default function Dashboard() {
               <Select.HiddenSelect />
             </Select.Root>
           </div>
-          <div class="filter-field players-filter">
-            <SegmentGroup.Root
-              class="segmented-control"
-              value={selectedPlayers()}
-              onValueChange={(details) => setSelectedPlayers(details.value || 'any')}
-            >
-              <SegmentGroup.Label>Players</SegmentGroup.Label>
-              <For each={playerOptions}>
-                {(playerOption) => (
-                  <SegmentGroup.Item value={playerOption} class="segmented-control-item">
-                    <SegmentGroup.ItemHiddenInput />
-                    <SegmentGroup.ItemText>
-                      {playerOption === 'any' ? 'Any' : playerOption}
-                    </SegmentGroup.ItemText>
-                  </SegmentGroup.Item>
-                )}
-              </For>
-            </SegmentGroup.Root>
-          </div>
-          <div class="filter-field time-filter wide">
-            <SegmentGroup.Root
-              class="time-period-control"
-              value={selectedTimePeriod()}
-              onValueChange={(details) => setSelectedTimePeriod(details.value || 'any')}
-            >
-              <SegmentGroup.Label>Time of Day</SegmentGroup.Label>
-              <For each={timePeriodOptions}>
-                {(timePeriodOption) => (
-                  <SegmentGroup.Item value={timePeriodOption} class="time-period-item">
-                    <SegmentGroup.ItemHiddenInput />
-                    <SegmentGroup.ItemText>
-                      {timePeriodOption.charAt(0).toUpperCase() + timePeriodOption.slice(1)}
-                    </SegmentGroup.ItemText>
-                  </SegmentGroup.Item>
-                )}
-              </For>
-            </SegmentGroup.Root>
-          </div>
           <div class="filter-field search-field">
             <label class="sr-only">Search</label>
             <button type="button" class="search-btn" onClick={loadTeeTimes} disabled={isLoading() || isSearching()}>
@@ -475,47 +440,77 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Tee Times List */}
-        <div class="tee-times">
+        <Show when={error()}>
+          {(message) => <div class="empty-state standalone">{message()}</div>}
+        </Show>
+
+        <Show when={searchedDay() && !isSearching()}>
+          <div class="tee-times">
           <div class="tee-times-header">
             <span>Results for {getSearchedDayLabel()} • {filteredTeeTimes().length}</span>
-            <div class="results-actions">
-              <Select.Root
-                collection={courseCollection()}
-                value={[selectedCourseId()]}
-                onValueChange={(details) => setSelectedCourseId(details.value[0] || 'all')}
-              >
-                <Select.Label class="sr-only">Course</Select.Label>
-                <Select.Control>
-                  <Select.Trigger class="ark-select-trigger results-course-trigger">
-                    <span>{selectedCourseLabel()}</span>
-                    <Select.Indicator class="ark-select-indicator" />
-                  </Select.Trigger>
-                </Select.Control>
-                <Select.Positioner>
-                  <Select.Content class="ark-select-content">
-                    <Select.List>
-                      <For each={courseCollection().items}>
-                        {(course) => (
-                          <Select.Item item={course} class="ark-select-item">
-                            <Select.ItemText>{getCourseOptionLabel(course)}</Select.ItemText>
-                          </Select.Item>
-                        )}
-                      </For>
-                    </Select.List>
-                  </Select.Content>
-                </Select.Positioner>
-                <Select.HiddenSelect />
-              </Select.Root>
-            </div>
+              <div class="results-actions">
+                <Select.Root
+                  collection={courseCollection()}
+                  value={[selectedCourseId()]}
+                  onValueChange={(details) => setSelectedCourseId(details.value[0] || 'all')}
+                >
+                  <Select.Label class="sr-only">Course</Select.Label>
+                  <Select.Control>
+                    <Select.Trigger class="ark-select-trigger results-course-trigger">
+                      <span>{selectedCourseLabel()}</span>
+                      <Select.Indicator class="ark-select-indicator" />
+                    </Select.Trigger>
+                  </Select.Control>
+                  <Select.Positioner>
+                    <Select.Content class="ark-select-content">
+                      <Select.List>
+                        <For each={courseCollection().items}>
+                          {(course) => (
+                            <Select.Item item={course} class="ark-select-item">
+                              <Select.ItemText>{getCourseOptionLabel(course)}</Select.ItemText>
+                            </Select.Item>
+                          )}
+                        </For>
+                      </Select.List>
+                    </Select.Content>
+                  </Select.Positioner>
+                  <Select.HiddenSelect />
+                </Select.Root>
+                <Select.Root
+                  collection={timePeriodCollection}
+                  value={[selectedTimePeriod()]}
+                  onValueChange={(details) => setSelectedTimePeriod(details.value[0] || 'any')}
+                >
+                  <Select.Label class="sr-only">Time of Day</Select.Label>
+                  <Select.Control>
+                    <Select.Trigger class="ark-select-trigger results-time-trigger">
+                      <Select.ValueText placeholder="Time of day" />
+                      <Select.Indicator class="ark-select-indicator" />
+                    </Select.Trigger>
+                  </Select.Control>
+                  <Select.Positioner>
+                    <Select.Content class="ark-select-content">
+                      <Select.List>
+                        <For each={timePeriodCollection.items}>
+                          {(timePeriodOption) => (
+                            <Select.Item item={timePeriodOption} class="ark-select-item">
+                              <Select.ItemText>{timePeriodOption.label}</Select.ItemText>
+                            </Select.Item>
+                          )}
+                        </For>
+                      </Select.List>
+                    </Select.Content>
+                  </Select.Positioner>
+                  <Select.HiddenSelect />
+                </Select.Root>
+              </div>
           </div>
           <Show when={!isLoading()} fallback={<div class="loading">Loading tee times...</div>}>
-            <Show when={!error()} fallback={<div class="empty-state">{error()}</div>}>
               <For
                 each={filteredTeeTimes()}
                 fallback={
                   <div class="empty-state">
-                    {searchedDay() ? 'No tee times available for this course and day' : 'Choose filters and search tee times'}
+                      No tee times available for this course and day
                   </div>
                 }
               >
@@ -579,9 +574,9 @@ export default function Dashboard() {
                   </div>
                 )}
               </For>
-            </Show>
           </Show>
-        </div>
+          </div>
+        </Show>
       </div>
     </div>
   )

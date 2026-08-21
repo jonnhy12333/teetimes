@@ -26,8 +26,6 @@
   --danger: #dc3545;
   --danger-hover: #c82333;
   --shadow: rgba(0, 0, 0, 0.1);
-  --segment-selected-bg: #666666;
-  --segment-selected-text: #ffffff;
 }
 
 [data-theme='dark'] {
@@ -52,8 +50,6 @@
   --danger: #d9535f;
   --danger-hover: #c94752;
   --shadow: rgba(0, 0, 0, 0.32);
-  --segment-selected-bg: #b7c2bc;
-  --segment-selected-text: #102414;
 }
 
 html {
@@ -201,7 +197,7 @@ body::before {
   border-radius: 8px;
   box-shadow: 0 2px 8px var(--shadow);
   display: grid;
-  grid-template-columns: minmax(170px, 1fr) minmax(260px, 1.6fr) minmax(320px, 2fr) minmax(112px, auto);
+  grid-template-columns: minmax(220px, 1fr) minmax(112px, auto);
   gap: 16px;
 }
 
@@ -210,8 +206,6 @@ body::before {
     position: sticky;
     top: 0;
     z-index: 10;
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
   }
 }
 
@@ -349,95 +343,6 @@ body::before {
   font-weight: 700;
 }
 
-.segmented-control {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.segmented-control [data-part='label'] {
-  grid-column: 1 / -1;
-  font-weight: 600;
-  color: var(--text);
-  display: block;
-  margin-bottom: 8px;
-  font-size: 13px;
-}
-
-.segmented-control-item:first-of-type {
-  border-top-left-radius: 8px;
-  border-bottom-left-radius: 8px;
-}
-
-.segmented-control-item:last-child {
-  border-top-right-radius: 8px;
-  border-bottom-right-radius: 8px;
-}
-
-.segmented-control-item {
-  border: 1px solid var(--border);
-  border-left: none;
-  background: var(--panel);
-  color: var(--text);
-  padding: 11px 8px;
-  cursor: pointer;
-  font-size: 15px;
-  text-align: center;
-  user-select: none;
-}
-
-.segmented-control-item:first-of-type {
-  border-left: 1px solid var(--border);
-}
-
-.segmented-control-item[data-state='checked'] {
-  background: var(--segment-selected-bg);
-  color: var(--segment-selected-text);
-  font-weight: 700;
-}
-
-.time-period-control {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.time-period-control [data-part='label'] {
-  grid-column: 1 / -1;
-  font-weight: 600;
-  color: var(--text);
-  display: block;
-  margin-bottom: 8px;
-  font-size: 13px;
-}
-
-.time-period-item {
-  border: 1px solid var(--border);
-  border-left: none;
-  background: var(--panel);
-  color: var(--text);
-  padding: 11px 8px;
-  cursor: pointer;
-  font-size: 15px;
-  text-align: center;
-  user-select: none;
-}
-
-.time-period-item:first-of-type {
-  border-left: 1px solid var(--border);
-  border-top-left-radius: 8px;
-  border-bottom-left-radius: 8px;
-}
-
-.time-period-item:last-child {
-  border-top-right-radius: 8px;
-  border-bottom-right-radius: 8px;
-}
-
-.time-period-item[data-state='checked'] {
-  background: var(--segment-selected-bg);
-  color: var(--segment-selected-text);
-  font-weight: 700;
-}
-
 /* Tee Times List */
 .tee-times {
   background: var(--panel);
@@ -470,9 +375,15 @@ body::before {
   border-color: rgba(16, 36, 20, 0.42);
 }
 
+.results-time-trigger {
+  min-width: 150px;
+  min-height: 40px;
+  border-color: rgba(16, 36, 20, 0.42);
+}
+
 .search-btn {
-  border: 1px solid rgba(16, 36, 20, 0.42);
-  background: rgba(16, 36, 20, 0.08);
+  border: 1px solid var(--accent);
+  background: var(--accent);
   color: var(--accent-contrast);
   border-radius: 6px;
   cursor: pointer;
@@ -502,7 +413,7 @@ body::before {
 
 .search-btn:hover:not(:disabled),
 .search-btn:focus-visible:not(:disabled) {
-  background: rgba(16, 36, 20, 0.14);
+  background: var(--accent-hover);
 }
 
 .search-btn:disabled {
@@ -628,6 +539,13 @@ a.weather-chip:focus-visible {
   padding: 20px;
 }
 
+.empty-state.standalone {
+  background: var(--panel);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px var(--shadow);
+  margin-top: 20px;
+}
+
 .course-configs {
   background: var(--panel);
   border-radius: 8px;
@@ -708,24 +626,8 @@ a.weather-chip:focus-visible {
     margin-bottom: 14px;
   }
 
-  .ark-select-trigger,
-  .segmented-control-item,
-  .time-period-item {
+  .ark-select-trigger {
     min-height: 44px;
-  }
-
-  .time-period-control {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0;
-  }
-
-  .time-period-item:nth-of-type(2) {
-    border-top-right-radius: 8px;
-  }
-
-  .time-period-item:nth-last-child(2) {
-    border-bottom-left-radius: 8px;
-    border-left: 1px solid var(--border);
   }
 
   .tee-times-header {
@@ -742,6 +644,7 @@ a.weather-chip:focus-visible {
   }
 
   .results-course-trigger,
+  .results-time-control,
   .search-btn {
     width: 100%;
     min-width: 0;
