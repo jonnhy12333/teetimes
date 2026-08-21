@@ -113,28 +113,6 @@ const supremeGolfApiKey = '61d982eb-185b-4146-8c5c-3a9e9c7197a0'
 
 export const courses: CourseConfig[] = [
   {
-    id: 'candia-woods-golf-links',
-    name: 'Candia Woods Golf Links',
-    city: 'Candia',
-    state: 'NH',
-    bookingSystem: 'CPS',
-    bookingUrl: 'https://candiawoods.cps.golf/onlineresweb/search-teetime?TeeOffTimeMin=0&TeeOffTimeMax=23',
-    authType: 'none',
-    status: 'unsupported',
-    notes: 'Club Prophet Systems online reservations. Backend transaction registration is Cloudflare-blocked.',
-  },
-  {
-    id: 'derryfield-country-club',
-    name: 'Derryfield Country Club',
-    city: 'Manchester',
-    state: 'NH',
-    bookingSystem: 'CPS',
-    bookingUrl: 'https://derryfield.cps.golf/onlineresweb/search-teetime?TeeOffTimeMin=0&TeeOffTimeMax=23',
-    authType: 'none',
-    status: 'unsupported',
-    notes: 'Club Prophet Systems online reservations. Backend transaction registration is Cloudflare-blocked.',
-  },
-  {
     id: 'granite-fields-golf-club',
     name: 'Granite Fields Golf Club',
     city: 'Kingston',
@@ -194,6 +172,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'ForeUP',
     bookingUrl: 'https://foreupsoftware.com/index.php/booking/21799/8917#/teetimes?merchant_id=21799',
     authType: 'none',
+    latitude: 42.91597,
+    longitude: -71.24145,
     logoUrl: '/course-logos/hidden-valley.png',
     foreUp: {
       courseId: 21799,

@@ -1,583 +1,208 @@
-import { Select, createListCollection } from '@ark-ui/solid/select'
-import { createEffect, createMemo, createSignal, For, onMount, Show } from 'solid-js'
+import { DatePicker, parseDate } from '@ark-ui/solid/date-picker'
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 
-interface Course {
-  id: string
-  name: string
-  city: string
-  state: string
-  bookingSystem: string
-  bookingUrl: string
-  authType: 'none' | 'member-login' | 'oauth' | 'unknown'
-  status?: 'active' | 'unsupported'
-  latitude?: number
-  longitude?: number
-  logoUrl?: string
-  notes?: string
-}
-
-interface TeeTime {
-  id: string
-  courseId: string
-  courseName: string
-  time: string
-  date: string
-  holes: number | string
-  price?: number
-  cartFee?: number
-  availableSpots?: number
-  bookingUrl: string
-  authRequired: boolean
-  authType: Course['authType']
-}
-
-interface WeatherHour {
-  time: string
-  temperature?: number
-  weatherCode?: number
-  windSpeed?: number
-  precipitationProbability?: number
-}
-
-interface ThemeSwitchProps {
-  checked: boolean
-  onChange: () => void
-}
+interface Course { id: string; name: string; city: string; state: string; bookingUrl: string; status?: 'active' | 'unsupported'; latitude?: number; longitude?: number; logoUrl?: string }
+interface TeeTime { id: string; courseId: string; time: string; date: string; holes: number | string; price?: number; availableSpots?: number; bookingUrl: string }
+interface WeatherHour { time: string; temperature?: number; weatherCode?: number }
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || ''
+const coursePreferencesKey = 'tee-times-course-preferences'
+const dateValue = (date: Date) => date.toISOString().slice(0, 10)
 
-const timePeriodOptions = ['morning', 'afternoon', 'evening', 'any']
-const timePeriodCollection = createListCollection({
-  items: timePeriodOptions.map((value) => ({
-    value,
-    label: value === 'any' ? 'Any Time' : value.charAt(0).toUpperCase() + value.slice(1),
-  })),
-  itemToString: (item) => item.label,
-  itemToValue: (item) => item.value,
-})
-
-const timePeriodRanges: Record<string, { start: number; end: number } | null> = {
-  morning: { start: 6, end: 12 },
-  afternoon: { start: 12, end: 16 },
-  evening: { start: 16, end: 24 },
-  any: null,
-}
-
-function formatDateValue(date: Date) {
-  return date.toISOString().slice(0, 10)
-}
-
-function getDayOptionLabel(date: Date, offset: number) {
-  const dateLabel = date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  })
-
-  if (offset === 0) {
-    return `Today, ${dateLabel}`
-  }
-
-  if (offset === 1) {
-    return `Tomorrow, ${dateLabel}`
-  }
-
-  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' })
-
-  return `${weekday}, ${dateLabel}`
-}
-
-function getDayOptions() {
-  const date = new Date()
-
+function getDays() {
+  const today = new Date()
   return Array.from({ length: 7 }, (_, offset) => {
-    const optionDate = new Date(date)
-    optionDate.setDate(date.getDate() + offset)
-
-    return {
-      value: formatDateValue(optionDate),
-      label: getDayOptionLabel(optionDate, offset),
-    }
+    const date = new Date(today); date.setDate(today.getDate() + offset)
+    const prefix = offset === 0 ? 'Today' : offset === 1 ? 'Tomorrow' : date.toLocaleDateString('en-US', { weekday: 'short' })
+    return { value: dateValue(date), label: `${prefix}, ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` }
   })
 }
 
-function getAuthLabel(authType: Course['authType']) {
-  const labels: Record<Course['authType'], string> = {
-    none: 'Public',
-    'member-login': 'Member login',
-    oauth: 'Connected account',
-    unknown: 'Auth unknown',
-  }
-
-  return labels[authType]
-}
-
-function getTimeSortValue(time: string) {
+function timeValue(time: string) {
   const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
-
-  if (!match) {
-    return Number.MAX_SAFE_INTEGER
-  }
-
-  const [, hourText, minuteText, period] = match
-  const hour = Number(hourText)
-  const minute = Number(minuteText)
-  const normalizedHour = (hour % 12) + (period.toUpperCase() === 'PM' ? 12 : 0)
-
-  return normalizedHour * 60 + minute
+  if (!match) return Number.MAX_SAFE_INTEGER
+  return ((Number(match[1]) % 12) + (match[3].toUpperCase() === 'PM' ? 12 : 0)) * 60 + Number(match[2])
 }
 
-function isPastTeeTime(teeTime: TeeTime) {
-  const now = new Date()
-  const today = now.toISOString().slice(0, 10)
-
-  if (teeTime.date !== today) {
-    return false
-  }
-
-  return getTimeSortValue(teeTime.time) < now.getHours() * 60 + now.getMinutes()
-}
-
-function getWeatherIcon(weatherCode?: number) {
-  if (weatherCode === undefined) {
-    return ''
-  }
-
-  if (weatherCode === 0) return '☀️ Sunny'
-  if ([1, 2].includes(weatherCode)) return '🌤️ Partly cloudy'
-  if (weatherCode === 3) return '☁️ Cloudy'
-  if ([45, 48].includes(weatherCode)) return '🌫️ Fog'
-  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(weatherCode)) return '🌧️ Rain'
-  if ([71, 73, 75, 77, 85, 86].includes(weatherCode)) return '❄️ Snow'
-  if ([95, 96, 99].includes(weatherCode)) return '⛈️ Storms'
-
-  return 'Weather'
-}
-
-function getTeeTimeDate(teeTime: TeeTime) {
-  const match = teeTime.time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
-
-  if (!match) {
-    return null
-  }
-
-  const [, hourText, minuteText, period] = match
-  const hour = Number(hourText)
-  const normalizedHour = (hour % 12) + (period.toUpperCase() === 'PM' ? 12 : 0)
-
-  return new Date(`${teeTime.date}T${String(normalizedHour).padStart(2, '0')}:${minuteText}:00`)
-}
-
-function getWeatherForecastUrl(course: Course) {
-  if (!course.latitude || !course.longitude) {
-    return null
-  }
-
-  return `https://weather.com/weather/hourbyhour/l/${course.latitude},${course.longitude}`
-}
-
-function ThemeSwitch(props: ThemeSwitchProps) {
-  return (
-    <label class="theme-switch">
-      <input
-        type="checkbox"
-        checked={props.checked}
-        onChange={props.onChange}
-        aria-label="Toggle dark mode"
-      />
-      <span class="theme-switch-track">
-        <span class="theme-switch-thumb" />
-      </span>
-      <span class="theme-switch-text">{props.checked ? 'Dark' : 'Light'}</span>
-    </label>
-  )
+function CalendarPicker(props: { value: string; label: string; onChange: (value: string) => void }) {
+  return <DatePicker.Root
+    value={[parseDate(props.value)]}
+    min={parseDate(dateValue(new Date()))}
+    fixedWeeks
+    startOfWeek={0}
+    positioning={{ placement: 'bottom-start', gutter: 8 }}
+    onValueChange={(details) => { const value = details.value[0]?.toString(); if (value && value !== props.value) props.onChange(value) }}
+  >
+    <DatePicker.Trigger class="date-display" aria-label={`${props.label}. Open calendar`}>{props.label}</DatePicker.Trigger>
+    <DatePicker.Positioner>
+      <DatePicker.Content class="calendar-popover">
+        <DatePicker.View view="day">
+          <DatePicker.ViewControl class="calendar-header">
+            <DatePicker.PrevTrigger class="calendar-nav" aria-label="Previous month">‹</DatePicker.PrevTrigger>
+            <DatePicker.ViewTrigger class="calendar-month"><DatePicker.RangeText /></DatePicker.ViewTrigger>
+            <DatePicker.NextTrigger class="calendar-nav" aria-label="Next month">›</DatePicker.NextTrigger>
+          </DatePicker.ViewControl>
+          <DatePicker.Context>{(calendar) => <DatePicker.Table class="calendar-table">
+            <DatePicker.TableHead><DatePicker.TableRow><For each={calendar().weekDays}>{(weekDay) => <DatePicker.TableHeader>{weekDay.short}</DatePicker.TableHeader>}</For></DatePicker.TableRow></DatePicker.TableHead>
+            <DatePicker.TableBody><For each={calendar().weeks}>{(week) => <DatePicker.TableRow><For each={week}>{(date) => <DatePicker.TableCell value={date}><DatePicker.TableCellTrigger>{date.day}</DatePicker.TableCellTrigger></DatePicker.TableCell>}</For></DatePicker.TableRow>}</For></DatePicker.TableBody>
+          </DatePicker.Table>}</DatePicker.Context>
+        </DatePicker.View>
+      </DatePicker.Content>
+    </DatePicker.Positioner>
+  </DatePicker.Root>
 }
 
 export default function Dashboard() {
-  const savedTheme = localStorage.getItem('theme')
-  const initialTheme = savedTheme === 'dark' || savedTheme === 'light'
-    ? savedTheme
-    : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  const [theme, setTheme] = createSignal<'light' | 'dark'>(initialTheme)
-  const dayOptions = getDayOptions()
-  const dayCollection = createListCollection({
-    items: dayOptions,
-    itemToString: (item) => item.label,
-    itemToValue: (item) => item.value,
-  })
-  const [selectedDay, setSelectedDay] = createSignal(dayOptions[0].value)
-  const [selectedCourseId, setSelectedCourseId] = createSignal('all')
-  const [selectedTimePeriod, setSelectedTimePeriod] = createSignal('any')
+  const days = getDays()
+  const storedTheme = localStorage.getItem('theme')
+  const [theme, setTheme] = createSignal<'light' | 'dark'>(storedTheme === 'dark' ? 'dark' : 'light')
+  const [day, setDay] = createSignal(days[0].value)
+  const [loadedDay, setLoadedDay] = createSignal(days[0].value)
   const [courses, setCourses] = createSignal<Course[]>([])
+  const [selectedCourseIds, setSelectedCourseIds] = createSignal<string[]>([])
+  const [preferencesLoaded, setPreferencesLoaded] = createSignal(false)
   const [teeTimes, setTeeTimes] = createSignal<TeeTime[]>([])
-  const [weatherByCourse, setWeatherByCourse] = createSignal<Record<string, WeatherHour[]>>({})
-  const [isLoading, setIsLoading] = createSignal(true)
-  const [isSearching, setIsSearching] = createSignal(false)
-  const [searchedDay, setSearchedDay] = createSignal<string | null>(null)
+  const [weather, setWeather] = createSignal<Record<string, WeatherHour[]>>({})
+  const [failed, setFailed] = createSignal<string[]>([])
+  const [expandedCourseIds, setExpandedCourseIds] = createSignal<string[]>([])
+  const [loadingCourseIds, setLoadingCourseIds] = createSignal<string[]>([])
+  const [openMenu, setOpenMenu] = createSignal<string | null>(null)
+  const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
+  let loadRequest = 0
 
+  createEffect(() => { document.documentElement.dataset.theme = theme(); localStorage.setItem('theme', theme()) })
   createEffect(() => {
-    document.documentElement.dataset.theme = theme()
-    localStorage.setItem('theme', theme())
+    if (preferencesLoaded()) localStorage.setItem(coursePreferencesKey, JSON.stringify({ version: 1, courseIds: selectedCourseIds() }))
   })
-
-  const sortedCourses = createMemo(() => {
-    return [...courses()].sort((first, second) => first.name.localeCompare(second.name))
-  })
-
-  const courseCollection = createMemo(() => {
-    return createListCollection({
-      items: [
-        { id: 'all', name: 'All Courses', status: 'active' as const },
-        ...sortedCourses(),
-      ],
-      itemToString: (item) => item.name,
-      itemToValue: (item) => item.id,
-    })
-  })
-
-  const teeTimeMatchesActiveFilters = (teeTime: TeeTime) => {
-    const timeHour = Math.floor(getTimeSortValue(teeTime.time) / 60)
-    const timePeriodRange = timePeriodRanges[selectedTimePeriod()]
-    const matchesTime = !timePeriodRange || (timeHour >= timePeriodRange.start && timeHour < timePeriodRange.end)
-
-    return !isPastTeeTime(teeTime) && matchesTime
+  const displayedCourses = createMemo(() => selectedCourseIds().map((id) => courses().find((course) => course.id === id)).filter((course): course is Course => Boolean(course)))
+  const availableCourses = createMemo(() => courses().filter((course) => !selectedCourseIds().includes(course.id)).sort((a, b) => a.name.localeCompare(b.name)))
+  const visibleTimes = createMemo(() => teeTimes().filter((tee) => {
+    const now = new Date()
+    if (tee.date === dateValue(now) && timeValue(tee.time) < now.getHours() * 60 + now.getMinutes()) return false
+    return true
+  }))
+  const timesFor = (id: string) => visibleTimes().filter((tee) => tee.courseId === id)
+  const displayedTimesFor = (id: string) => expandedCourseIds().includes(id) ? timesFor(id) : timesFor(id).slice(0, 12)
+  const remainingTimesFor = (id: string) => Math.max(0, timesFor(id).length - 12)
+  const toggleCourse = (id: string) => setExpandedCourseIds((ids) => ids.includes(id) ? ids.filter((courseId) => courseId !== id) : [...ids, id])
+  const weatherForCourse = (courseId: string) => {
+    const hours = weather()[courseId] || []
+    const temperatures = hours.map((hour) => hour.temperature).filter((temperature): temperature is number => temperature !== undefined)
+    if (!temperatures.length) return null
+    const low = Math.round(Math.min(...temperatures)); const high = Math.round(Math.max(...temperatures))
+    const daytime = hours.filter((hour) => { const value = new Date(hour.time).getHours(); return value >= 7 && value <= 19 })
+    const codes = daytime.map((hour) => hour.weatherCode).filter((code): code is number => code !== undefined)
+    const code = codes.sort((a, b) => codes.filter((value) => value === b).length - codes.filter((value) => value === a).length)[0]
+    const icon = code === 0 ? '☀️' : code !== undefined && code <= 2 ? '🌤️' : code === 3 ? '☁️' : code !== undefined && [45, 48].includes(code) ? '🌫️' : code !== undefined && code >= 95 ? '⛈️' : code !== undefined && code >= 71 && code <= 86 ? '❄️' : code !== undefined && code >= 51 ? '🌧️' : '🌡️'
+    return { icon, temperature: low === high ? `${low}°` : `${low}–${high}°` }
   }
 
-  const teeTimeCountsByCourse = createMemo(() => {
-    return teeTimes().filter(teeTimeMatchesActiveFilters).reduce<Record<string, number>>((counts, teeTime) => {
-      counts[teeTime.courseId] = (counts[teeTime.courseId] || 0) + 1
-      return counts
-    }, {})
-  })
-
-  const allCoursesCount = createMemo(() => {
-    return teeTimes().filter(teeTimeMatchesActiveFilters).length
-  })
-
-  const getCourseOptionLabel = (course: Course | { id: string; name: string; status: 'active' }) => {
-    if (course.id === 'all') {
-      return `${course.name} (${allCoursesCount()})`
-    }
-
-    if (course.status === 'unsupported') {
-      return `${course.name} (Not available yet)`
-    }
-
-    return `${course.name} (${teeTimeCountsByCourse()[course.id] || 0})`
-  }
-
-  const selectedCourseLabel = createMemo(() => {
-    const selectedCourse = courseCollection().items.find((course) => course.id === selectedCourseId())
-
-    return selectedCourse ? getCourseOptionLabel(selectedCourse) : 'Select course'
-  })
-
-  const filteredTeeTimes = createMemo(() => {
-    return teeTimes().filter((teeTime) => {
-      const matchesCourse = selectedCourseId() === 'all' || teeTime.courseId === selectedCourseId()
-
-      return matchesCourse && teeTimeMatchesActiveFilters(teeTime)
-    })
-  })
-
-  const getWeatherForTeeTime = (teeTime: TeeTime) => {
-    const teeTimeDate = getTeeTimeDate(teeTime)
-    const weatherHours = weatherByCourse()[teeTime.courseId] || []
-
-    if (!teeTimeDate || !weatherHours.length) {
-      return null
-    }
-
-    return weatherHours.reduce<WeatherHour | null>((closestWeather, weatherHour) => {
-      const weatherDate = new Date(weatherHour.time)
-      const currentDifference = Math.abs(weatherDate.getTime() - teeTimeDate.getTime())
-      const closestDifference = closestWeather ? Math.abs(new Date(closestWeather.time).getTime() - teeTimeDate.getTime()) : Number.POSITIVE_INFINITY
-
-      return currentDifference < closestDifference ? weatherHour : closestWeather
-    }, null)
-  }
-
-  const getCourseForTeeTime = (teeTime: TeeTime) => {
-    return courses().find((course) => course.id === teeTime.courseId)
-  }
-
-  const loadCourses = async () => {
-    setIsLoading(true)
-    setError(null)
-
+  const getSavedCourseIds = (list: Course[]) => {
     try {
-      const coursesResponse = await fetch(`${apiBaseUrl}/api/courses`)
-
-      if (!coursesResponse.ok) {
-        throw new Error('Unable to load course configs')
-      }
-
-      const nextCourses: Course[] = await coursesResponse.json()
-      setCourses(nextCourses)
-    } catch (error) {
-      console.error('Failed to load courses', error)
-      setError('Could not load courses. Check that the backend is running.')
-    } finally {
-      setIsLoading(false)
-    }
+      const saved = JSON.parse(localStorage.getItem(coursePreferencesKey) || '') as { courseIds?: string[] }
+      if (Array.isArray(saved.courseIds)) return saved.courseIds.filter((id) => list.some((course) => course.id === id))
+    } catch { /* Use the first-visit default. */ }
+    return []
   }
 
-  const loadTeeTimes = async () => {
-    const date = selectedDay()
-    let nextCourses = courses()
-    setIsSearching(true)
-    setError(null)
-
+  async function loadBoard(date: string, requestedCourses?: Course[]) {
+    const request = ++loadRequest
+    setLoading(true); setError(null); setExpandedCourseIds([]); setTeeTimes([]); setFailed([]); setWeather({}); setLoadedDay(date)
     try {
-      if (!nextCourses.length) {
-        const coursesResponse = await fetch(`${apiBaseUrl}/api/courses`)
-
-        if (!coursesResponse.ok) {
-          throw new Error('Unable to load course configs')
-        }
-
-        nextCourses = await coursesResponse.json()
-        setCourses(nextCourses)
+      let list = courses()
+      if (!list.length) {
+        const response = await fetch(`${apiBaseUrl}/api/courses`); if (!response.ok) throw new Error()
+        const allCourses = await response.json() as Course[]
+        const savedIds = getSavedCourseIds(allCourses)
+        setCourses(allCourses); setSelectedCourseIds(savedIds); setPreferencesLoaded(true)
+        list = allCourses.filter((course) => savedIds.includes(course.id)).sort((a, b) => savedIds.indexOf(a.id) - savedIds.indexOf(b.id))
+      } else {
+        list = requestedCourses || displayedCourses()
       }
-
-      const teeTimeLists = await Promise.all(
-        nextCourses.map(async (course) => {
+      if (request !== loadRequest) return
+      setLoadingCourseIds(list.map((course) => course.id))
+      await Promise.all(list.map(async (course) => {
+        try {
           const response = await fetch(`${apiBaseUrl}/api/courses/${course.id}/tee-times?date=${date}`)
-
-          if (!response.ok) {
-            return []
-          }
-
-          return response.json() as Promise<TeeTime[]>
-        }),
-      )
-      const weatherEntries = await Promise.all(
-        nextCourses
-          .filter((course) => course.latitude && course.longitude)
-          .map(async (course) => {
-            const response = await fetch(`${apiBaseUrl}/api/courses/${course.id}/weather?date=${date}`)
-
-            if (!response.ok) {
-              return [course.id, []] as const
-            }
-
-            const weather = await response.json() as { hourly?: WeatherHour[] }
-            return [course.id, weather.hourly || []] as const
-          }),
-      )
-
-      setWeatherByCourse(Object.fromEntries(weatherEntries))
-      setTeeTimes(teeTimeLists.flat().sort((first, second) => getTimeSortValue(first.time) - getTimeSortValue(second.time)))
-      setSearchedDay(date)
-    } catch (error) {
-      console.error('Failed to load tee times', error)
-      setError('Could not load tee times. Check that the backend is running.')
-    } finally {
-      setIsSearching(false)
-    }
+          if (!response.ok) throw new Error()
+          const times = await response.json() as TeeTime[]
+          if (request === loadRequest) setTeeTimes((current) => [...current, ...times].sort((a, b) => timeValue(a.time) - timeValue(b.time)))
+        } catch {
+          if (request === loadRequest) setFailed((ids) => [...ids, course.id])
+        } finally {
+          if (request === loadRequest) setLoadingCourseIds((ids) => ids.filter((id) => id !== course.id))
+        }
+      }))
+      const forecasts = await Promise.all(list.filter((course) => course.latitude && course.longitude).map(async (course) => {
+        try { const response = await fetch(`${apiBaseUrl}/api/courses/${course.id}/weather?date=${date}`); const data = response.ok ? await response.json() : {}; return [course.id, data.hourly || []] as const }
+        catch { return [course.id, []] as const }
+      }))
+      if (request === loadRequest) setWeather(Object.fromEntries(forecasts))
+    } catch { setError('Could not load courses. Check that the backend is running.') }
+    finally { if (request === loadRequest) setLoading(false) }
   }
 
   onMount(() => {
-    void loadCourses()
+    void loadBoard(day())
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!(event.target as Element).closest('[data-menu-root]')) setOpenMenu(null)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpenMenu(null) }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    onCleanup(() => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    })
   })
-
-  const getDayLabel = () => {
-    return dayOptions.find((dayOption) => dayOption.value === selectedDay())?.label || 'Today'
+  const dayLabel = () => {
+    const selected = new Date(`${loadedDay()}T12:00:00`)
+    const today = new Date()
+    const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
+    const selectedValue = dateValue(selected)
+    const prefix = selectedValue === dateValue(today) ? 'Today' : selectedValue === dateValue(tomorrow) ? 'Tomorrow' : selected.toLocaleDateString('en-US', { weekday: 'short' })
+    return `${prefix}, ${selected.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+  }
+  const stepDay = (amount: number) => {
+    const nextDate = new Date(`${day()}T12:00:00`)
+    nextDate.setDate(nextDate.getDate() + amount)
+    const nextValue = dateValue(nextDate)
+    setDay(nextValue)
+    void loadBoard(nextValue)
+  }
+  const isToday = () => day() === dateValue(new Date())
+  const moveCourse = (courseId: string, offset: number) => setSelectedCourseIds((ids) => {
+    const index = ids.indexOf(courseId); const nextIndex = index + offset
+    if (index < 0 || nextIndex < 0 || nextIndex >= ids.length) return ids
+    const next = [...ids]; [next[index], next[nextIndex]] = [next[nextIndex], next[index]]
+    return next
+  })
+  const removeCourse = (courseId: string) => setSelectedCourseIds((ids) => ids.filter((id) => id !== courseId))
+  const addCourse = (course: Course) => {
+    const nextIds = [...selectedCourseIds(), course.id]
+    setSelectedCourseIds(nextIds)
+    const nextCourses = nextIds.map((id) => courses().find((item) => item.id === id)).filter((item): item is Course => Boolean(item))
+    void loadBoard(day(), nextCourses)
   }
 
-  const getSearchedDayLabel = () => {
-    return dayOptions.find((dayOption) => dayOption.value === searchedDay())?.label || 'No search yet'
-  }
-
-  const toggleTheme = () => {
-    setTheme(theme() === 'dark' ? 'light' : 'dark')
-  }
-
-  return (
-    <div class="container">
-      <div class="dashboard">
-        {/* Header */}
-        <div class="header">
-          <h1>⛳ Tee Times</h1>
-          <ThemeSwitch checked={theme() === 'dark'} onChange={toggleTheme} />
-        </div>
-
-        <div class="filters-panel">
-          <div class="filter-field">
-            <Select.Root
-              collection={dayCollection}
-              value={[selectedDay()]}
-              onValueChange={(details) => setSelectedDay(details.value[0] || dayOptions[0].value)}
-            >
-              <Select.Label>Day</Select.Label>
-              <Select.Control>
-                <Select.Trigger class="ark-select-trigger">
-                  <Select.ValueText placeholder="Select day" />
-                  <Select.Indicator class="ark-select-indicator" />
-                </Select.Trigger>
-              </Select.Control>
-              <Select.Positioner>
-                <Select.Content class="ark-select-content">
-                  <Select.List>
-                    <For each={dayCollection.items}>
-                      {(dayOption) => (
-                        <Select.Item item={dayOption} class="ark-select-item">
-                          <Select.ItemText>{dayOption.label}</Select.ItemText>
-                        </Select.Item>
-                      )}
-                    </For>
-                  </Select.List>
-                </Select.Content>
-              </Select.Positioner>
-              <Select.HiddenSelect />
-            </Select.Root>
+  return <div class="container"><div class="dashboard">
+    <Show when={error()}>{(message) => <div class="empty-state standalone">{message()}</div>}</Show>
+    <Show when={courses().length} fallback={<div class="loading standalone">Loading courses and tee times...</div>}>
+      <section class="course-board" aria-busy={loading()}>
+        <div class="board-heading"><div><p>Available tee times</p><div class="board-date-nav"><button type="button" class="date-arrow" disabled={isToday()} onClick={() => stepDay(-1)} aria-label="Previous day">‹</button><CalendarPicker value={day()} label={dayLabel()} onChange={(value) => { setDay(value); void loadBoard(value) }} /><button type="button" class="date-arrow" onClick={() => stepDay(1)} aria-label="Next day">›</button></div></div><label class="theme-switch"><input type="checkbox" checked={theme() === 'dark'} onChange={() => setTheme(theme() === 'dark' ? 'light' : 'dark')} aria-label="Toggle dark mode" /><span class="theme-switch-track"><span class="theme-switch-thumb" /></span><span class="theme-switch-text">{theme() === 'dark' ? 'Dark' : 'Light'}</span></label></div>
+        <div class="course-grid"><For each={displayedCourses()}>{(course, index) => <article class="course-card">
+          <header class="course-card-header"><div class="course-avatar"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div><div class="course-card-title"><span class="course-name">{course.name}</span><p>{course.city}, {course.state}</p></div><Show when={weatherForCourse(course.id)}>{(forecast) => <span class="course-weather"><span aria-hidden="true">{forecast().icon}</span>{forecast().temperature}</span>}</Show><div class="course-options" data-menu-root><button type="button" class="course-options-trigger" aria-label={`Manage ${course.name}`} aria-expanded={openMenu() === course.id} onClick={() => setOpenMenu(openMenu() === course.id ? null : course.id)}>•••</button><Show when={openMenu() === course.id}><div class="course-menu-popover"><button type="button" disabled={index() === 0} onClick={() => { moveCourse(course.id, -1); setOpenMenu(null) }}>Move up</button><button type="button" disabled={index() === displayedCourses().length - 1} onClick={() => { moveCourse(course.id, 1); setOpenMenu(null) }}>Move down</button><button type="button" class="remove-course" onClick={() => { removeCourse(course.id); setOpenMenu(null) }}>Remove course</button></div></Show></div></header>
+          <div class="tee-time-chips"><Show when={!loadingCourseIds().includes(course.id)} fallback={<div class="course-loading"><span class="loading-spinner" />Loading tee times...</div>}><Show when={course.status !== 'unsupported'} fallback={<div class="course-empty">Online tee times aren’t available yet.</div>}><Show when={!failed().includes(course.id)} fallback={<div class="course-empty">Couldn’t load this course. Try another day.</div>}><For each={displayedTimesFor(course.id)} fallback={<div class="course-empty">No tee times available for this day.</div>}>{(tee) => <a class="tee-time-chip" href={tee.bookingUrl} target="_blank" rel="noreferrer"><strong>{tee.time}</strong><span>{tee.price !== undefined ? `$${tee.price}` : `${tee.holes} holes`}{tee.availableSpots ? ` · ${tee.availableSpots} ${tee.availableSpots === 1 ? 'spot' : 'spots'}` : ''}</span></a>}</For></Show></Show></Show></div>
+          <div class="course-card-actions">
+            <Show when={remainingTimesFor(course.id) > 0}>
+              <button type="button" class="course-expand-btn" onClick={() => toggleCourse(course.id)}>{expandedCourseIds().includes(course.id) ? 'Show fewer' : `Show ${remainingTimesFor(course.id)} more`}</button>
+            </Show>
+            <a class="course-card-link" href={course.bookingUrl} target="_blank" rel="noreferrer">Booking site →</a>
           </div>
-          <div class="filter-field search-field">
-            <label class="sr-only">Search</label>
-            <button type="button" class="search-btn" onClick={loadTeeTimes} disabled={isLoading() || isSearching()}>
-              {isSearching() ? 'Searching...' : 'Search'}
-            </button>
-          </div>
-        </div>
-
-        <Show when={error()}>
-          {(message) => <div class="empty-state standalone">{message()}</div>}
-        </Show>
-
-        <Show when={searchedDay() && !isSearching()}>
-          <div class="tee-times">
-          <div class="tee-times-header">
-            <span>Results for {getSearchedDayLabel()} • {filteredTeeTimes().length}</span>
-              <div class="results-actions">
-                <Select.Root
-                  collection={courseCollection()}
-                  value={[selectedCourseId()]}
-                  onValueChange={(details) => setSelectedCourseId(details.value[0] || 'all')}
-                >
-                  <Select.Label class="sr-only">Course</Select.Label>
-                  <Select.Control>
-                    <Select.Trigger class="ark-select-trigger results-course-trigger">
-                      <span>{selectedCourseLabel()}</span>
-                      <Select.Indicator class="ark-select-indicator" />
-                    </Select.Trigger>
-                  </Select.Control>
-                  <Select.Positioner>
-                    <Select.Content class="ark-select-content">
-                      <Select.List>
-                        <For each={courseCollection().items}>
-                          {(course) => (
-                            <Select.Item item={course} class="ark-select-item">
-                              <Select.ItemText>{getCourseOptionLabel(course)}</Select.ItemText>
-                            </Select.Item>
-                          )}
-                        </For>
-                      </Select.List>
-                    </Select.Content>
-                  </Select.Positioner>
-                  <Select.HiddenSelect />
-                </Select.Root>
-                <Select.Root
-                  collection={timePeriodCollection}
-                  value={[selectedTimePeriod()]}
-                  onValueChange={(details) => setSelectedTimePeriod(details.value[0] || 'any')}
-                >
-                  <Select.Label class="sr-only">Time of Day</Select.Label>
-                  <Select.Control>
-                    <Select.Trigger class="ark-select-trigger results-time-trigger">
-                      <Select.ValueText placeholder="Time of day" />
-                      <Select.Indicator class="ark-select-indicator" />
-                    </Select.Trigger>
-                  </Select.Control>
-                  <Select.Positioner>
-                    <Select.Content class="ark-select-content">
-                      <Select.List>
-                        <For each={timePeriodCollection.items}>
-                          {(timePeriodOption) => (
-                            <Select.Item item={timePeriodOption} class="ark-select-item">
-                              <Select.ItemText>{timePeriodOption.label}</Select.ItemText>
-                            </Select.Item>
-                          )}
-                        </For>
-                      </Select.List>
-                    </Select.Content>
-                  </Select.Positioner>
-                  <Select.HiddenSelect />
-                </Select.Root>
-              </div>
-          </div>
-          <Show when={!isLoading()} fallback={<div class="loading">Loading tee times...</div>}>
-              <For
-                each={filteredTeeTimes()}
-                fallback={
-                  <div class="empty-state">
-                      No tee times available for this course and day
-                  </div>
-                }
-              >
-                {(teeTime) => (
-                  <div class="tee-time-item">
-                    <div class="tee-time-main">
-                      <a class="course-avatar" href={teeTime.bookingUrl} target="_blank" rel="noreferrer" aria-label={`Open ${teeTime.courseName}`}>
-                        <Show when={getCourseForTeeTime(teeTime)?.logoUrl} fallback={teeTime.courseName.charAt(0)}>
-                          {(logoUrl) => <img src={logoUrl()} alt="" />}
-                        </Show>
-                      </a>
-                      <div>
-                        <a class="course-name" href={teeTime.bookingUrl} target="_blank" rel="noreferrer">
-                          {teeTime.courseName}
-                        </a>
-                        <div class="tee-time-details">
-                          {teeTime.time} • {teeTime.holes} holes
-                          {teeTime.availableSpots && <span> • {teeTime.availableSpots} {teeTime.availableSpots === 1 ? 'spot' : 'spots'}</span>}
-                          {teeTime.price && <span> • ${teeTime.price}</span>}
-                          {teeTime.cartFee && <span> • cart ${teeTime.cartFee}</span>}
-                          {teeTime.authRequired && <span> • {getAuthLabel(teeTime.authType)}</span>}
-                          <Show when={getWeatherForTeeTime(teeTime)}>
-                            {(weather) => (
-                              <Show
-                                when={getCourseForTeeTime(teeTime)}
-                                fallback={
-                                  <>
-                                    <span> • </span>
-                                    <span class="weather-chip">
-                                      {getWeatherIcon(weather().weatherCode)}
-                                      {weather().temperature !== undefined && <span> {Math.round(weather().temperature!)}°F</span>}
-                                      {weather().windSpeed !== undefined && <span> • wind {Math.round(weather().windSpeed!)} mph</span>}
-                                    </span>
-                                  </>
-                                }
-                              >
-                                {(course) => (
-                                  <>
-                                    <span> • </span>
-                                    <a
-                                      class="weather-chip"
-                                      href={getWeatherForecastUrl(course()) || undefined}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                    >
-                                      {getWeatherIcon(weather().weatherCode)}
-                                      {weather().temperature !== undefined && <span> {Math.round(weather().temperature!)}°F</span>}
-                                      {weather().windSpeed !== undefined && <span> • wind {Math.round(weather().windSpeed!)} mph</span>}
-                                    </a>
-                                  </>
-                                )}
-                              </Show>
-                            )}
-                          </Show>
-                        </div>
-                      </div>
-                    </div>
-                    <a class="book-btn" href={teeTime.bookingUrl} target="_blank" rel="noreferrer">
-                      Book
-                    </a>
-                  </div>
-                )}
-              </For>
-          </Show>
-          </div>
-        </Show>
-      </div>
-    </div>
-  )
+        </article>}</For><Show when={availableCourses().length > 0 && displayedCourses().length === 0}><div class="add-course-card" data-menu-root><button type="button" class="add-course-card-trigger" aria-expanded={openMenu() === 'add'} onClick={() => setOpenMenu(openMenu() === 'add' ? null : 'add')}><strong>＋ Add course</strong><span>Choose a course to show on your board</span></button><Show when={openMenu() === 'add'}><div class="course-menu-popover add-course-popover"><For each={availableCourses()}>{(course) => <button type="button" onClick={() => { addCourse(course); setOpenMenu(null) }}>{course.name}</button>}</For></div></Show></div></Show></div>
+        <Show when={availableCourses().length > 0 && displayedCourses().length > 0}><div class="add-course-compact" data-menu-root><button type="button" aria-expanded={openMenu() === 'add'} onClick={() => setOpenMenu(openMenu() === 'add' ? null : 'add')}>＋ Add course</button><Show when={openMenu() === 'add'}><div class="course-menu-popover"><For each={availableCourses()}>{(course) => <button type="button" onClick={() => { addCourse(course); setOpenMenu(null) }}>{course.name}</button>}</For></div></Show></div></Show>
+      </section>
+    </Show>
+  </div></div>
 }
