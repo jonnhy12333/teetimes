@@ -467,6 +467,12 @@ export default function Dashboard() {
               </For>
             </SegmentGroup.Root>
           </div>
+          <div class="filter-field search-field">
+            <label class="sr-only">Search</label>
+            <button type="button" class="search-btn" onClick={loadTeeTimes} disabled={isLoading() || isSearching()}>
+              {isSearching() ? 'Searching...' : 'Search'}
+            </button>
+          </div>
         </div>
 
         {/* Tee Times List */}
@@ -501,9 +507,6 @@ export default function Dashboard() {
                 </Select.Positioner>
                 <Select.HiddenSelect />
               </Select.Root>
-              <button type="button" class="search-btn" onClick={loadTeeTimes} disabled={isLoading() || isSearching()}>
-                {isSearching() ? 'Searching...' : 'Search'}
-              </button>
             </div>
           </div>
           <Show when={!isLoading()} fallback={<div class="loading">Loading tee times...</div>}>

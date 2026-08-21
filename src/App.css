@@ -201,7 +201,7 @@ body::before {
   border-radius: 8px;
   box-shadow: 0 2px 8px var(--shadow);
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(260px, 2fr);
+  grid-template-columns: minmax(170px, 1fr) minmax(260px, 1.6fr) minmax(320px, 2fr) minmax(112px, auto);
   gap: 16px;
 }
 
@@ -221,6 +221,10 @@ body::before {
 
 .filter-field {
   min-width: 0;
+}
+
+.search-field {
+  align-self: end;
 }
 
 .filter-field label {
@@ -477,6 +481,11 @@ body::before {
   min-height: 40px;
   min-width: 96px;
   padding: 0 14px;
+}
+
+.search-field .search-btn {
+  width: 100%;
+  min-height: 46px;
 }
 
 .sr-only {
