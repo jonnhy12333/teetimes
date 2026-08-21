@@ -398,6 +398,13 @@ body::before {
   transform: translateY(-1px);
 }
 
+.course-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
 .course-name {
   display: inline-block;
   font-weight: 600;

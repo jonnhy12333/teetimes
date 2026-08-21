@@ -13,6 +13,7 @@ interface Course {
   status?: 'active' | 'unsupported'
   latitude?: number
   longitude?: number
+  logoUrl?: string
   notes?: string
 }
 
@@ -452,7 +453,9 @@ export default function Dashboard() {
                   <div class="tee-time-item">
                     <div class="tee-time-main">
                       <a class="course-avatar" href={teeTime.bookingUrl} target="_blank" rel="noreferrer" aria-label={`Open ${teeTime.courseName}`}>
-                        {teeTime.courseName.charAt(0)}
+                        <Show when={getCourseForTeeTime(teeTime)?.logoUrl} fallback={teeTime.courseName.charAt(0)}>
+                          {(logoUrl) => <img src={logoUrl()} alt="" />}
+                        </Show>
                       </a>
                       <div>
                         <a class="course-name" href={teeTime.bookingUrl} target="_blank" rel="noreferrer">

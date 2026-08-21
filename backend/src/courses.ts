@@ -14,6 +14,7 @@ export interface CourseConfig {
   status?: 'active' | 'unsupported'
   latitude?: number
   longitude?: number
+  logoUrl?: string
   foreUp?: {
     courseId: number
     bookingClass: number
@@ -190,6 +191,7 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'ForeUP',
     bookingUrl: 'https://foreupsoftware.com/index.php/booking/21799/8917#/teetimes?merchant_id=21799',
     authType: 'none',
+    logoUrl: '/course-logos/hidden-valley.jpg',
     foreUp: {
       courseId: 21799,
       bookingClass: 11772,
