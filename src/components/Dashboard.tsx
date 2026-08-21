@@ -198,6 +198,10 @@ export default function Dashboard(props: DashboardProps) {
     }, {})
   })
 
+  const allCoursesCount = createMemo(() => {
+    return teeTimes().filter(teeTimeMatchesActiveFilters).length
+  })
+
   const filteredTeeTimes = createMemo(() => {
     return teeTimes().filter((teeTime) => {
       const matchesCourse = selectedCourseId() === 'all' || teeTime.courseId === selectedCourseId()
@@ -377,7 +381,7 @@ export default function Dashboard(props: DashboardProps) {
                         <Select.Item item={course} class="ark-select-item">
                           <Select.ItemText>
                             {course.name} {course.id === 'all'
-                              ? `(${filteredTeeTimes().length})`
+                              ? `(${allCoursesCount()})`
                               : course.status === 'unsupported'
                                 ? '(Not available yet)'
                                 : `(${teeTimeCountsByCourse()[course.id] || 0})`}
