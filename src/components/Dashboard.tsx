@@ -1,6 +1,5 @@
 import { Select, createListCollection } from '@ark-ui/solid/select'
 import { SegmentGroup } from '@ark-ui/solid/segment-group'
-import { Slider } from '@ark-ui/solid/slider'
 import { createEffect, createMemo, createSignal, For, Show } from 'solid-js'
 
 interface DashboardProps {
@@ -55,6 +54,14 @@ const dayOptions = [
 ]
 
 const playerOptions = ['1', '2', '3', '4', 'any']
+const timePeriodOptions = ['morning', 'afternoon', 'evening', 'any']
+
+const timePeriodRanges: Record<string, { start: number; end: number } | null> = {
+  morning: { start: 6, end: 12 },
+  afternoon: { start: 12, end: 17 },
+  evening: { start: 17, end: 24 },
+  any: null,
+}
 
 const dayCollection = createListCollection({
   items: dayOptions,
@@ -93,17 +100,6 @@ function getTimeSortValue(time: string) {
   const normalizedHour = (hour % 12) + (period.toUpperCase() === 'PM' ? 12 : 0)
 
   return normalizedHour * 60 + minute
-}
-
-function formatHourLabel(hour: number) {
-  if (hour >= 18) {
-    return '6 PM+'
-  }
-
-  const period = hour >= 12 ? 'PM' : 'AM'
-  const displayHour = hour % 12 || 12
-
-  return `${displayHour} ${period}`
 }
 
 function isPastTeeTime(teeTime: TeeTime) {
@@ -159,8 +155,7 @@ export default function Dashboard(props: DashboardProps) {
   const [selectedDay, setSelectedDay] = createSignal('today')
   const [selectedCourseId, setSelectedCourseId] = createSignal('all')
   const [selectedPlayers, setSelectedPlayers] = createSignal('any')
-  const [minTime, setMinTime] = createSignal(7)
-  const [maxTime, setMaxTime] = createSignal(18)
+  const [selectedTimePeriod, setSelectedTimePeriod] = createSignal('any')
   const [courses, setCourses] = createSignal<Course[]>([])
   const [teeTimes, setTeeTimes] = createSignal<TeeTime[]>([])
   const [weatherByCourse, setWeatherByCourse] = createSignal<Record<string, WeatherHour[]>>({})
@@ -185,8 +180,9 @@ export default function Dashboard(props: DashboardProps) {
   const teeTimeMatchesActiveFilters = (teeTime: TeeTime) => {
     const timeHour = Math.floor(getTimeSortValue(teeTime.time) / 60)
     const playerCount = selectedPlayers() === 'any' ? null : Number(selectedPlayers())
+    const timePeriodRange = timePeriodRanges[selectedTimePeriod()]
     const matchesPlayers = playerCount === null || !teeTime.availableSpots || teeTime.availableSpots >= playerCount
-    const matchesTime = timeHour >= minTime() && timeHour <= maxTime()
+    const matchesTime = !timePeriodRange || (timeHour >= timePeriodRange.start && timeHour < timePeriodRange.end)
 
     return !isPastTeeTime(teeTime) && matchesPlayers && matchesTime
   }
@@ -319,26 +315,6 @@ export default function Dashboard(props: DashboardProps) {
     return dayOptions.find((dayOption) => dayOption.value === selectedDay())?.label || 'Today'
   }
 
-  const handleMinTimeChange = (value: number) => {
-    setMinTime(Math.min(value, maxTime()))
-  }
-
-  const handleMaxTimeChange = (value: number) => {
-    setMaxTime(Math.max(value, minTime()))
-  }
-
-  const handleTimeRangeChange = (value: number[]) => {
-    const [nextMinTime, nextMaxTime] = value
-
-    setMinTime(nextMinTime)
-    setMaxTime(nextMaxTime)
-  }
-
-  const resetTimeFilter = () => {
-    setMinTime(7)
-    setMaxTime(18)
-  }
-
   return (
     <div class="container">
       <div class="dashboard">
@@ -432,30 +408,23 @@ export default function Dashboard(props: DashboardProps) {
             </SegmentGroup.Root>
           </div>
           <div class="filter-field time-filter wide">
-            <div class="filter-label-row">
-              <label>Time of Day</label>
-              <button type="button" class="reset-filter-btn" onClick={resetTimeFilter}>Reset</button>
-            </div>
-            <div class="time-range-labels">
-              <span>{formatHourLabel(minTime())}</span>
-              <span>{formatHourLabel(maxTime())}</span>
-            </div>
-            <Slider.Root
-              class="time-slider"
-              min={7}
-              max={18}
-              step={1}
-              value={[minTime(), maxTime()]}
-              onValueChange={(details) => handleTimeRangeChange(details.value)}
+            <SegmentGroup.Root
+              class="time-period-control"
+              value={selectedTimePeriod()}
+              onValueChange={(details) => setSelectedTimePeriod(details.value || 'any')}
             >
-              <Slider.Control class="time-slider-control">
-                <Slider.Track class="time-slider-track">
-                  <Slider.Range class="time-slider-range" />
-                </Slider.Track>
-                <Slider.Thumb index={0} class="time-slider-thumb" />
-                <Slider.Thumb index={1} class="time-slider-thumb" />
-              </Slider.Control>
-            </Slider.Root>
+              <SegmentGroup.Label>Time of Day</SegmentGroup.Label>
+              <For each={timePeriodOptions}>
+                {(timePeriodOption) => (
+                  <SegmentGroup.Item value={timePeriodOption} class="time-period-item">
+                    <SegmentGroup.ItemHiddenInput />
+                    <SegmentGroup.ItemText>
+                      {timePeriodOption.charAt(0).toUpperCase() + timePeriodOption.slice(1)}
+                    </SegmentGroup.ItemText>
+                  </SegmentGroup.Item>
+                )}
+              </For>
+            </SegmentGroup.Root>
           </div>
         </div>
 

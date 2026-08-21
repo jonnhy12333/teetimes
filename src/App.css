@@ -325,50 +325,47 @@ body::before {
   font-weight: 700;
 }
 
-.time-range-labels {
-  display: flex;
-  justify-content: space-between;
+.time-period-control {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.time-period-control [data-part='label'] {
+  grid-column: 1 / -1;
+  font-weight: 600;
   color: #333;
-  font-size: 13px;
+  display: block;
   margin-bottom: 8px;
+  font-size: 13px;
 }
 
-.time-slider-control {
-  position: relative;
-  height: 24px;
-  width: 100%;
-}
-
-.time-slider-track {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 4px;
-  transform: translateY(-50%);
-  border-radius: 999px;
-  background: #dbe4ff;
-}
-
-.time-slider-range {
-  height: 100%;
-  border-radius: 999px;
-  background: #4CAF50;
-}
-
-.time-slider-thumb {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #4CAF50;
-  border-radius: 999px;
+.time-period-item {
+  border: 1px solid #ddd;
+  border-left: none;
   background: white;
+  color: #333;
+  padding: 11px 8px;
   cursor: pointer;
-  transform: translateY(-50%);
+  font-size: 15px;
+  text-align: center;
+  user-select: none;
 }
 
-.time-slider-thumb:focus-visible {
-  outline: 3px solid rgba(76, 175, 80, 0.3);
-  outline-offset: 2px;
+.time-period-item:first-of-type {
+  border-left: 1px solid #ddd;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+.time-period-item:last-child {
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.time-period-item[data-state='checked'] {
+  background: #6c757d;
+  color: white;
+  font-weight: 700;
 }
 
 /* Tee Times List */
