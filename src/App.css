@@ -205,6 +205,16 @@ body::before {
   gap: 16px;
 }
 
+@media (min-width: 701px) {
+  .filters-panel {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+}
+
 .filter-field.wide {
   grid-column: span 1;
 }
