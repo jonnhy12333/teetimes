@@ -660,7 +660,7 @@ body::before {
   transform: translateY(-1px);
 }
 
-.tee-time-chip strong { color: var(--accent-dark); font-size: 14px; padding-right: 28px; }
+.tee-time-chip strong { color: var(--accent-dark); font-size: 14px; padding-right: 28px; white-space: nowrap; }
 .tee-time-chip .tee-time-holes { color: var(--muted); font-size: 10px; font-weight: 750; line-height: 1; margin: 0; position: absolute; right: 8px; top: 11px; }
 .tee-time-chip .tee-time-meta { color: var(--muted); font-size: 11px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
