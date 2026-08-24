@@ -635,13 +635,28 @@ body::before {
   padding: 9px 8px;
   position: relative;
   text-decoration: none;
-  transition: border-color .15s, background-color .15s, transform .15s;
+  transition: box-shadow .15s, transform .15s;
 }
 
-.tee-time-chip:hover, .tee-time-chip:focus-visible {
-  background: var(--panel);
+.tee-time-chip.availability-best {
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-muted));
   border-color: var(--accent);
-  outline: none;
+}
+
+.tee-time-chip.availability-low {
+  background: color-mix(in srgb, #d97706 9%, var(--panel-muted));
+  border-color: #d97706;
+}
+
+.tee-time-chip:hover {
+  box-shadow: 0 4px 10px var(--shadow);
+  transform: translateY(-1px);
+}
+
+.tee-time-chip:focus-visible {
+  box-shadow: 0 4px 10px var(--shadow);
+  outline: 2px solid color-mix(in srgb, var(--text) 65%, transparent);
+  outline-offset: 2px;
   transform: translateY(-1px);
 }
 
