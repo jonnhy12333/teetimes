@@ -10,6 +10,7 @@ export interface CourseConfig {
   state: string
   bookingSystem: string
   bookingUrl: string
+  websiteUrl?: string
   authType: CourseAuthType
   status?: 'active' | 'unsupported'
   latitude?: number
@@ -53,6 +54,7 @@ export interface TeeTime {
   time: string
   date: string
   holes: 9 | 18 | '9/18'
+  options?: Array<{ holes: 9 | 18; price?: number }>
   price?: number
   cartFee?: number
   availableSpots?: number
@@ -108,6 +110,8 @@ interface TotalETeeTime {
   AvailableSlot?: string
   Allow18: boolean
   Allow9: boolean
+  GolfPrice9?: number
+  GolfPrice18?: number
   CourseID: string
   Time: string
 }
@@ -160,6 +164,7 @@ export const courses: CourseConfig[] = [
     state: 'NH',
     bookingSystem: 'Easy Tee',
     bookingUrl: 'https://app.easyteegolf.com/course/granite-fields-golf-club/',
+    websiteUrl: 'https://granitefields.com/',
     authType: 'none',
     latitude: 42.8628067,
     longitude: -71.0878971,
@@ -176,6 +181,7 @@ export const courses: CourseConfig[] = [
     state: 'NH',
     bookingSystem: 'ForeUP',
     bookingUrl: 'https://foreupsoftware.com/index.php/booking/18836/3372#/teetimes',
+    websiteUrl: 'https://www.hoodkroftcountryclub.com/home',
     authType: 'none',
     latitude: 42.888,
     longitude: -71.314,
@@ -194,6 +200,7 @@ export const courses: CourseConfig[] = [
     state: 'NH',
     bookingSystem: 'ForeUP',
     bookingUrl: 'https://foreupsoftware.com/index.php/booking/20454/4585#/teetimes?merchant_id=20454',
+    websiteUrl: 'https://hiddencreeknh.com/',
     authType: 'none',
     latitude: 42.88058,
     longitude: -71.44939,
@@ -212,6 +219,7 @@ export const courses: CourseConfig[] = [
     state: 'NH',
     bookingSystem: 'ForeUP',
     bookingUrl: 'https://foreupsoftware.com/index.php/booking/21799/8917#/teetimes?merchant_id=21799',
+    websiteUrl: 'https://www.hiddenvalleyrvgolf.com/',
     authType: 'none',
     latitude: 42.91597,
     longitude: -71.24145,
@@ -230,6 +238,7 @@ export const courses: CourseConfig[] = [
     state: 'NH',
     bookingSystem: 'ForeUP',
     bookingUrl: 'https://foreupsoftware.com/index.php/booking/20363/4577#/teetimes?merchant_id=20363',
+    websiteUrl: 'https://passaconawaycc.com/',
     authType: 'none',
     latitude: 42.866,
     longitude: -71.477,
@@ -247,7 +256,8 @@ export const courses: CourseConfig[] = [
     city: 'Hollis',
     state: 'NH',
     bookingSystem: 'Chronogolf v2',
-    bookingUrl: 'https://www.chronogolf.com/club/the-overlook-golf-club',
+    bookingUrl: 'https://www.chronogolf.com/club/overlook-golf-club/teetimes',
+    websiteUrl: 'https://overlookgolfclub.com/',
     authType: 'none',
     latitude: 42.7186155,
     longitude: -71.542304,
@@ -264,6 +274,7 @@ export const courses: CourseConfig[] = [
     state: 'NH',
     bookingSystem: 'ForeUP',
     bookingUrl: 'https://foreupsoftware.com/index.php/booking/22278/10318#/teetimes?merchant_id=22278',
+    websiteUrl: 'https://www.pinevalleygolfcourse.com/',
     authType: 'none',
     latitude: 42.7382981,
     longitude: -71.3063836,
@@ -282,6 +293,7 @@ export const courses: CourseConfig[] = [
     state: 'NH',
     bookingSystem: 'Chronogolf',
     bookingUrl: 'https://souheganwoods.com/',
+    websiteUrl: 'https://souheganwoods.com/',
     authType: 'none',
     latitude: 42.8705,
     longitude: -71.6074,
@@ -301,6 +313,7 @@ export const courses: CourseConfig[] = [
     state: 'NH',
     bookingSystem: 'Total e Integrated',
     bookingUrl: 'https://atkinson.totaleintegrated.net/',
+    websiteUrl: 'https://www.atkinsonresort.com/golf',
     authType: 'none',
     latitude: 42.8193814,
     longitude: -71.1823667,
@@ -317,6 +330,7 @@ export const courses: CourseConfig[] = [
     state: 'NH',
     bookingSystem: 'Total e Integrated',
     bookingUrl: 'https://atkinson.totaleintegrated.net/',
+    websiteUrl: 'https://www.atkinsonresort.com/golf',
     authType: 'none',
     latitude: 42.8193814,
     longitude: -71.1823667,
@@ -333,6 +347,7 @@ export const courses: CourseConfig[] = [
     state: 'NH',
     bookingSystem: 'TeeItUp',
     bookingUrl: 'https://6391c422-2e57-4bc3-a1b3-8a6676c82588.book.teeitup.com/',
+    websiteUrl: 'https://www.scottishhighlandsgolf.com/',
     authType: 'none',
     latitude: 42.756612,
     longitude: -71.2464334,
@@ -351,6 +366,7 @@ export const courses: CourseConfig[] = [
     state: 'MA',
     bookingSystem: 'TeeItUp',
     bookingUrl: 'https://merrimack-valley-golf-club.book.teeitup.com/',
+    websiteUrl: 'https://merrimackvalleygolfclub.com/',
     authType: 'none',
     logoUrl: '/course-logos/merrimack-valley.png',
     latitude: 42.7537812,
@@ -369,6 +385,7 @@ export const courses: CourseConfig[] = [
     state: 'NH',
     bookingSystem: 'TeeItUp',
     bookingUrl: 'https://the-links-at-labelle-winery.book.teeitup.com/',
+    websiteUrl: 'https://labellewinery.com/labelle-winery-derry/golf/',
     authType: 'none',
     latitude: 42.8553431,
     longitude: -71.212806,
@@ -387,6 +404,7 @@ export const courses: CourseConfig[] = [
     state: 'NH',
     bookingSystem: 'TeeItUp',
     bookingUrl: 'https://windham-country.book.teeitup.com/',
+    websiteUrl: 'https://windhamcc.com/',
     authType: 'none',
     latitude: 42.8192,
     longitude: -71.3124,
@@ -468,6 +486,7 @@ async function getForeUpTeeTimes(course: CourseConfig, date: string): Promise<Te
     time: formatTimeLabel(teeTime.time),
     date,
     holes: teeTime.holes,
+    options: (teeTime.holes === '9/18' ? [9, 18] as const : [teeTime.holes]).map((holes) => ({ holes, price: typeof teeTime.green_fee === 'number' ? teeTime.green_fee : undefined })),
     price: typeof teeTime.green_fee === 'number' ? teeTime.green_fee : undefined,
     cartFee: typeof teeTime.cart_fee === 'number' ? teeTime.cart_fee : undefined,
     availableSpots: teeTime.available_spots,
@@ -519,6 +538,7 @@ async function getEasyTeeTimes(course: CourseConfig, date: string): Promise<TeeT
       date,
       holes: Number(holesMatch[1]) as 9 | 18,
       price: priceMatch ? Number(priceMatch[1]) : undefined,
+      options: [{ holes: Number(holesMatch[1]) as 9 | 18, price: priceMatch ? Number(priceMatch[1]) : undefined }],
       availableSpots: spotsMatch ? Number(spotsMatch[1]) : undefined,
       bookingUrl: course.bookingUrl,
       authRequired: false,
@@ -570,6 +590,7 @@ async function getSupremeGolfTeeTimes(course: CourseConfig, date: string): Promi
       date,
       holes: teeTimeGroup.holes.length > 1 ? '9/18' : teeTimeGroup.holes[0],
       price: teeTimeGroup.starting_rate ?? undefined,
+      options: teeTimeGroup.holes.map((holes) => ({ holes, price: teeTimeGroup.starting_rate ?? undefined })),
       availableSpots: teeTimeGroup.players.length ? Math.max(...teeTimeGroup.players) : undefined,
       bookingUrl: course.bookingUrl,
       authRequired: false,
@@ -613,6 +634,10 @@ async function getTeeItUpTeeTimes(course: CourseConfig, date: string): Promise<T
     const rates = teeTime.rates || []
     const holes = Array.from(new Set(rates.map((rate) => rate.holes))).sort()
     const prices = rates.map(getTeeItUpRatePrice).filter((price): price is number => typeof price === 'number')
+    const options = ([9, 18] as const).flatMap((holes) => {
+      const holePrices = rates.filter((rate) => rate.holes === holes).map(getTeeItUpRatePrice).filter((price): price is number => typeof price === 'number')
+      return rates.some((rate) => rate.holes === holes) ? [{ holes, price: holePrices.length ? Math.min(...holePrices) : undefined }] : []
+    })
     const primaryRate = rates[0]
 
     return {
@@ -623,6 +648,7 @@ async function getTeeItUpTeeTimes(course: CourseConfig, date: string): Promise<T
       date,
       holes: holes.length > 1 ? '9/18' : holes[0],
       price: prices.length ? Math.min(...prices) : undefined,
+      options,
       availableSpots: teeTime.maxPlayers || undefined,
       bookingUrl: course.bookingUrl,
       authRequired: false,
@@ -682,7 +708,13 @@ async function getTotalETeeTimes(course: CourseConfig, date: string): Promise<Te
     throw new Error(`Total e Integrated request failed: ${data.ErrorMessage}`)
   }
 
-  return (data.TeeTimeData || []).map((teeTime, index) => ({
+  return (data.TeeTimeData || []).map((teeTime, index) => {
+    const options = ([9, 18] as const).flatMap((holes) => {
+      const allowed = holes === 9 ? teeTime.Allow9 : teeTime.Allow18
+      const price = holes === 9 ? teeTime.GolfPrice9 : teeTime.GolfPrice18
+      return allowed ? [{ holes, price: typeof price === 'number' && price > 0 ? price : teeTime.PerPlayerCost }] : []
+    })
+    return {
     id: `${course.id}-${date}-${teeTime.CourseID}-${teeTime.Time || index}`,
     courseId: course.id,
     courseName: course.name,
@@ -690,11 +722,13 @@ async function getTotalETeeTimes(course: CourseConfig, date: string): Promise<Te
     date,
     holes: teeTime.Holes === 9 || (!teeTime.Allow18 && teeTime.Allow9) ? 9 : 18,
     price: typeof teeTime.PerPlayerCost === 'number' ? teeTime.PerPlayerCost : undefined,
+    options,
     availableSpots: getTotalEAvailableSpots(teeTime.AvailableSlot),
     bookingUrl: course.bookingUrl,
     authRequired: false,
     authType: course.authType,
-  }))
+    }
+  })
 }
 
 function formatChronogolfTime(value: string) {
@@ -740,6 +774,7 @@ async function getChronogolfTeeTimes(course: CourseConfig, date: string): Promis
         date,
         holes: course.chronogolf!.holes,
         price: greenFee?.price ?? greenFee?.green_fee,
+        options: [{ holes: course.chronogolf!.holes, price: greenFee?.price ?? greenFee?.green_fee }],
         cartFee: greenFee?.half_cart_price ?? greenFee?.half_cart,
         bookingUrl: course.bookingUrl,
         authRequired: false,
@@ -773,6 +808,15 @@ async function getChronogolfV2TeeTimes(course: CourseConfig, date: string): Prom
     if (!pageTeeTimes.length) break
   }
 
+  const bookingParams = new URLSearchParams({
+    date,
+    holes: '',
+    coursesIds: '',
+    deals: 'false',
+    groupSize: '0',
+  })
+  const datedBookingUrl = `${course.bookingUrl}?${bookingParams.toString()}`
+
   return teeTimes
     .filter((teeTime) => !teeTime.frozen)
     .map((teeTime) => {
@@ -787,9 +831,10 @@ async function getChronogolfV2TeeTimes(course: CourseConfig, date: string): Prom
         date,
         holes,
         price: teeTime.default_price?.green_fee,
+        options: [{ holes: teeTime.default_price?.bookable_holes || (bookableHoles[0] ?? 18), price: teeTime.default_price?.green_fee }],
         cartFee: teeTime.default_price?.half_cart,
         availableSpots: teeTime.max_player_size,
-        bookingUrl: course.bookingUrl,
+        bookingUrl: datedBookingUrl,
         authRequired: false,
         authType: course.authType,
       }
