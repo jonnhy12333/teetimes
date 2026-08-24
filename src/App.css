@@ -631,7 +631,7 @@ body::before {
   color: var(--text);
   display: flex;
   flex-direction: column;
-  flex: 0 0 104px;
+  flex: 0 0 100px;
   padding: 9px 8px;
   position: relative;
   text-decoration: none;
@@ -660,8 +660,9 @@ body::before {
   transform: translateY(-1px);
 }
 
-.tee-time-chip strong { color: var(--accent-dark); font-size: 14px; }
-.tee-time-chip span { color: var(--muted); font-size: 11px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tee-time-chip strong { color: var(--accent-dark); font-size: 14px; padding-right: 28px; }
+.tee-time-chip .tee-time-holes { color: var(--muted); font-size: 10px; font-weight: 750; line-height: 1; margin: 0; position: absolute; right: 8px; top: 11px; }
+.tee-time-chip .tee-time-meta { color: var(--muted); font-size: 11px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .course-empty { color: var(--subtle); flex: 1; font-size: 14px; padding: 18px 4px; text-align: center; }
 .course-loading { align-items: center; color: var(--muted); display: flex; flex: 1; font-size: 14px; gap: 9px; justify-content: center; padding: 18px 4px; }
