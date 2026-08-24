@@ -44,6 +44,10 @@ export interface CourseConfig {
   chronogolfV2?: {
     courseUuid: string
   }
+  clubCaddie?: {
+    courseId: number
+    apiKey: string
+  }
   notes?: string
 }
 
@@ -152,6 +156,19 @@ interface ChronogolfV2TeeTime {
 interface ChronogolfV2Response {
   status: string
   teetimes?: ChronogolfV2TeeTime[]
+}
+
+interface ClubCaddiePricingPlan {
+  HoleRate_9?: number | null
+  HoleRate_18?: number | null
+}
+
+interface ClubCaddieSlot {
+  CourseId: number
+  StartTime: string
+  PlayersAvailable?: number
+  PlayersAvailabilityFront?: number
+  PricingPlan?: ClubCaddiePricingPlan[]
 }
 
 const supremeGolfApiKey = '61d982eb-185b-4146-8c5c-3a9e9c7197a0'
@@ -305,6 +322,24 @@ export const courses: CourseConfig[] = [
       holes: 18,
     },
     notes: 'Public Chronogolf marketplace tee times.',
+  },
+  {
+    id: 'amherst-country-club',
+    name: 'Amherst Country Club',
+    city: 'Amherst',
+    state: 'NH',
+    bookingSystem: 'Club Caddie',
+    bookingUrl: 'https://apimanager-cc28.clubcaddie.com/webapi/view/edfdabab/slots?CourseId=103435&apikey=edfdabab',
+    websiteUrl: 'https://www.playamherst.com/amherst-country-club',
+    authType: 'none',
+    latitude: 42.8285037,
+    longitude: -71.6040041,
+    logoUrl: '/course-logos/amherst.png',
+    clubCaddie: {
+      courseId: 103435,
+      apiKey: 'edfdabab',
+    },
+    notes: 'Public Club Caddie tee-time HTML endpoint with encoded slot data.',
   },
   {
     id: 'atkinson-country-club-18',
@@ -841,6 +876,76 @@ async function getChronogolfV2TeeTimes(course: CourseConfig, date: string): Prom
     })
 }
 
+function formatDateForClubCaddie(date: string) {
+  const [year, month, day] = date.split('-')
+  return `${month}/${day}/${year}`
+}
+
+async function getClubCaddieTeeTimes(course: CourseConfig, date: string): Promise<TeeTime[]> {
+  if (!course.clubCaddie) return []
+
+  const searchParams = new URLSearchParams({
+    date: formatDateForClubCaddie(date),
+    player: 'any',
+    holes: 'any',
+    fromtime: '4',
+    totime: '23',
+    minprice: '0',
+    maxprice: '999',
+    ratetype: 'any',
+    HoleGroup: 'front',
+    CourseId: String(course.clubCaddie.courseId),
+    apikey: course.clubCaddie.apiKey,
+  })
+  const response = await axios.post<string>('https://apimanager-cc28.clubcaddie.com/webapi/TeeTimes', searchParams.toString(), {
+    headers: {
+      Accept: '*/*',
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      Origin: 'https://apimanager-cc28.clubcaddie.com',
+      Referer: course.bookingUrl,
+      'User-Agent': 'Mozilla/5.0',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+  })
+  const $ = cheerio.load(response.data)
+  const bookingParams = new URLSearchParams(searchParams)
+  const bookingUrl = `https://apimanager-cc28.clubcaddie.com/webapi/view/${course.clubCaddie.apiKey}/slots?${bookingParams.toString()}`
+
+  return ($('form[id^="TeeTimeSlotForm"]').map((index, form) => {
+    const encodedSlot = $(form).find('input[name="slot"]').attr('value')
+    if (!encodedSlot) return undefined
+    try {
+      const slot = JSON.parse(decodeURIComponent(encodedSlot)) as ClubCaddieSlot
+      const options = ([9, 18] as const).flatMap((holes) => {
+        const prices = (slot.PricingPlan || []).map((plan) => holes === 9 ? plan.HoleRate_9 : plan.HoleRate_18).filter((price): price is number => typeof price === 'number')
+        return prices.length ? [{ holes, price: Math.min(...prices) }] : []
+      })
+      if (!options.length) return undefined
+      const [hourText, minute = '00'] = slot.StartTime.split(':')
+      const hour = Number(hourText)
+      const displayTime = `${hour % 12 || 12}:${minute} ${hour >= 12 ? 'PM' : 'AM'}`
+      const primaryOption = options.find((option) => option.holes === 18) || options[0]
+
+      return {
+        id: `${course.id}-${date}-${slot.StartTime}-${index}`,
+        courseId: course.id,
+        courseName: course.name,
+        time: displayTime,
+        date,
+        holes: options.length > 1 ? '9/18' : primaryOption.holes,
+        options,
+        price: primaryOption.price,
+        availableSpots: slot.PlayersAvailable ?? slot.PlayersAvailabilityFront,
+        bookingUrl,
+        authRequired: false,
+        authType: course.authType,
+      } satisfies TeeTime
+    } catch {
+      return undefined
+    }
+  }).get() as Array<TeeTime | undefined>).filter((teeTime): teeTime is TeeTime => Boolean(teeTime))
+}
+
 export async function getTeeTimesForCourse(course: CourseConfig, date: string): Promise<TeeTime[]> {
   if (course.bookingSystem === 'ForeUP') {
     return getForeUpTeeTimes(course, date)
@@ -868,6 +973,10 @@ export async function getTeeTimesForCourse(course: CourseConfig, date: string): 
 
   if (course.bookingSystem === 'Chronogolf v2') {
     return getChronogolfV2TeeTimes(course, date)
+  }
+
+  if (course.bookingSystem === 'Club Caddie') {
+    return getClubCaddieTeeTimes(course, date)
   }
 
   return []
