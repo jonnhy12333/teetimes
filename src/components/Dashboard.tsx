@@ -1,6 +1,7 @@
 import { DatePicker, parseDate } from '@ark-ui/solid/date-picker'
 import { Slider } from '@ark-ui/solid/slider'
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import type { JSX } from 'solid-js'
 
 interface Course { id: string; name: string; city: string; state: string; bookingUrl: string; websiteUrl?: string; status?: 'active' | 'unsupported'; latitude?: number; longitude?: number; logoUrl?: string }
 interface TeeTime { id: string; courseId: string; time: string; date: string; holes: number | string; options?: Array<{ holes: 9 | 18; price?: number }>; price?: number; availableSpots?: number; bookingUrl: string }
@@ -8,7 +9,7 @@ type PlayerFilter = 'any' | 2 | 3 | 4
 type HoleFilter = 'any' | 9 | 18
 type TimeRange = [number, number]
 type SortMode = 'relevance' | 'availability' | 'walk-on' | 'distance'
-type EntryIntent = 'now' | 'tonight' | 'saturday' | 'sunday' | 'date'
+type EntryIntent = 'now' | 'tonight' | 'date'
 type Coordinates = { latitude: number; longitude: number }
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || ''
@@ -17,8 +18,8 @@ const dateValue = (date: Date) => date.toISOString().slice(0, 10)
 const playerFilters: PlayerFilter[] = ['any', 2, 3, 4]
 const holeFilters: HoleFilter[] = ['any', 9, 18]
 const sortModes: SortMode[] = ['relevance', 'availability', 'walk-on', 'distance']
-const timeMinimum = 5 * 60
-const timeMaximum = 21 * 60
+const timeMinimum = 7 * 60
+const timeMaximum = 19 * 60
 const fullDayRange: TimeRange = [timeMinimum, timeMaximum]
 
 function clampTime(value: number) {
@@ -113,12 +114,38 @@ function TimeRangePicker(props: { value: TimeRange; onChange: (value: TimeRange)
       <Slider.Thumb class="time-range-thumb" index={0} aria-label="Earliest tee time"><Slider.HiddenInput /></Slider.Thumb>
       <Slider.Thumb class="time-range-thumb" index={1} aria-label="Latest tee time"><Slider.HiddenInput /></Slider.Thumb>
     </Slider.Control>
-    <div class="time-range-scale" aria-hidden="true"><span>5 AM</span><span>Noon</span><span>9 PM</span></div>
+    <div class="time-range-scale" aria-hidden="true"><span>7 AM</span><span>1 PM</span><span>7 PM</span></div>
   </Slider.Root>
+}
+
+function TeeTimeScroller(props: { children: JSX.Element; courseName: string }) {
+  let scroller!: HTMLDivElement
+  const [canScrollLeft, setCanScrollLeft] = createSignal(false)
+  const [canScrollRight, setCanScrollRight] = createSignal(false)
+  const updateEdges = () => {
+    setCanScrollLeft(scroller.scrollLeft > 2)
+    setCanScrollRight(scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 2)
+  }
+  const scroll = (direction: -1 | 1) => scroller.scrollBy({ left: direction * Math.max(240, scroller.clientWidth * .78), behavior: 'smooth' })
+  onMount(() => {
+    const resizeObserver = new ResizeObserver(updateEdges)
+    const mutationObserver = new MutationObserver(updateEdges)
+    resizeObserver.observe(scroller)
+    mutationObserver.observe(scroller, { childList: true, subtree: true })
+    requestAnimationFrame(updateEdges)
+    onCleanup(() => { resizeObserver.disconnect(); mutationObserver.disconnect() })
+  })
+  return <div class="tee-time-scroller">
+    <button type="button" class="tee-scroll-arrow tee-scroll-left" classList={{ visible: canScrollLeft() }} onClick={() => scroll(-1)} aria-label={`Show earlier tee times for ${props.courseName}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg></button>
+    <div class="tee-time-chips" ref={scroller} onScroll={updateEdges}>{props.children}</div>
+    <button type="button" class="tee-scroll-arrow tee-scroll-right" classList={{ visible: canScrollRight() }} onClick={() => scroll(1)} aria-label={`Show later tee times for ${props.courseName}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6" /></svg></button>
+  </div>
 }
 
 export default function Dashboard() {
   const initialSearch = initialSearchState()
+  const entryClock = new Date()
+  const combineImmediateChoices = Math.ceil((entryClock.getHours() * 60 + entryClock.getMinutes()) / 15) * 15 >= 16 * 60
   const storedTheme = localStorage.getItem('theme')
   const [theme, setTheme] = createSignal<'light' | 'dark'>(storedTheme === 'dark' ? 'dark' : 'light')
   const [day, setDay] = createSignal(initialSearch.day)
@@ -253,12 +280,10 @@ export default function Dashboard() {
   function playNowRange(): TimeRange { const now = new Date(); const start = Math.min(Math.max(timeMinimum, Math.ceil((now.getHours() * 60 + now.getMinutes()) / 15) * 15), timeMaximum - 15); return [start, Math.min(start + 180, timeMaximum)] }
   function searchPlayNow() { const today = dateValue(new Date()); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange(playNowRange()); setSortMode('walk-on'); setDay(today); void loadSearch(today); findNearMe('walk-on') }
   function searchTonight() { const today = dateValue(new Date()); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange([16 * 60, timeMaximum]); setSortMode('availability'); setDay(today); void loadSearch(today) }
-  function searchWeekend(weekday: 0 | 6) { const date = new Date(); date.setDate(date.getDate() + (weekday - date.getDay() + 7) % 7); const value = dateValue(date); activateSearch(); setTimeRange([...fullDayRange]); setSortMode('relevance'); setDay(value); void loadSearch(value) }
   function submitEntrySearch() {
     if (entryIntent() === 'now') searchPlayNow()
-    else if (entryIntent() === 'tonight') searchTonight()
-    else if (entryIntent() === 'saturday') searchWeekend(6)
-    else if (entryIntent() === 'sunday') searchWeekend(0)
+    else if (entryIntent() === 'tonight' && !combineImmediateChoices) searchTonight()
+    else if (entryIntent() === 'tonight') searchPlayNow()
     else runSearch()
   }
   function chooseSortMode(next: SortMode) {
@@ -310,15 +335,13 @@ export default function Dashboard() {
         <div class="entry-copy"><p class="eyebrow">TEE TIMES NEAR YOU</p><h1>What kind of round are you looking for?</h1><p>Choose your search, optionally narrow it to one course, then find tee times.</p></div>
         <div class="entry-choices" role="radiogroup" aria-label="When do you want to play?">
           <button type="button" role="radio" aria-checked={entryIntent() === 'now'} classList={{ active: entryIntent() === 'now' }} onClick={() => { setEntryIntent('now'); setChoosingDate(false) }}><strong>Play now</strong><span>Today · next 3 hours</span></button>
-          <button type="button" role="radio" aria-checked={entryIntent() === 'tonight'} classList={{ active: entryIntent() === 'tonight' }} onClick={() => { setEntryIntent('tonight'); setChoosingDate(false) }}><strong>Play tonight</strong><span>Today · after 4 PM</span></button>
-          <button type="button" role="radio" aria-checked={entryIntent() === 'saturday'} classList={{ active: entryIntent() === 'saturday' }} onClick={() => { setEntryIntent('saturday'); setChoosingDate(false) }}><strong>This Saturday</strong><span>See tee times all day</span></button>
-          <button type="button" role="radio" aria-checked={entryIntent() === 'sunday'} classList={{ active: entryIntent() === 'sunday' }} onClick={() => { setEntryIntent('sunday'); setChoosingDate(false) }}><strong>This Sunday</strong><span>See tee times all day</span></button>
+          <Show when={!combineImmediateChoices}><button type="button" role="radio" aria-checked={entryIntent() === 'tonight'} classList={{ active: entryIntent() === 'tonight' }} onClick={() => { setEntryIntent('tonight'); setChoosingDate(false) }}><strong>Play tonight</strong><span>Today · after 4 PM</span></button></Show>
           <button type="button" role="radio" aria-checked={entryIntent() === 'date'} classList={{ active: entryIntent() === 'date' }} onClick={() => { setEntryIntent('date'); setChoosingDate(true) }}><strong>Choose date and time</strong><span>Set a custom window</span></button>
         </div>
         <Show when={choosingDate()}><div class="entry-date"><div class="search-control date-control"><label>Date</label><div class="board-date-nav"><button type="button" class="date-arrow" disabled={day() === dateValue(new Date())} onClick={() => stepDay(-1)} aria-label="Previous day">‹</button><CalendarPicker value={day()} label={dayLabel()} onChange={changeDay} /><button type="button" class="date-arrow" onClick={() => stepDay(1)} aria-label="Next day">›</button></div></div><TimeRangePicker value={timeRange()} onChange={setTimeRange} /></div></Show>
         <div class="entry-course-choice" data-course-picker>
           <label>Have a course in mind?</label>
-          <button type="button" class="course-picker-trigger" aria-haspopup="listbox" aria-expanded={coursePickerOpen()} onClick={() => setCoursePickerOpen(!coursePickerOpen())}><Show when={selectedCourse()} fallback={<div class="course-picker-all-icon">All</div>}>{(course) => <div class="course-avatar compact"><Show when={course().logoUrl} fallback={course().name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div>}</Show><span><strong>{selectedCourse()?.name || 'Search all courses'}</strong><small>{selectedCourse() ? `${selectedCourse()!.city}, ${selectedCourse()!.state}` : 'Compare every available course'}</small></span><b aria-hidden="true">⌄</b></button>
+          <button type="button" class="course-picker-trigger" aria-haspopup="listbox" aria-expanded={coursePickerOpen()} onClick={() => setCoursePickerOpen(!coursePickerOpen())}><Show when={selectedCourse()} fallback={<div class="course-picker-all-icon">All</div>}>{(course) => <div class="course-avatar compact"><Show when={course().logoUrl} fallback={course().name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div>}</Show><span><strong>{selectedCourse()?.name || 'Search all courses'}</strong><small>{selectedCourse() ? `${selectedCourse()!.city}, ${selectedCourse()!.state}` : 'Compare every available course'}</small></span><svg class="course-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5" /></svg></button>
           <Show when={coursePickerOpen()}><div class="course-picker-menu" role="listbox" aria-label="Choose a course"><button type="button" role="option" aria-selected={!selectedEntryCourse()} onClick={() => { setSelectedEntryCourse(''); setCoursePickerOpen(false) }}><div class="course-picker-all-icon">All</div><span><strong>Search all courses</strong><small>Compare every available course</small></span></button><For each={courses()}>{(course) => <button type="button" role="option" aria-selected={selectedEntryCourse() === course.id} onClick={() => { setSelectedEntryCourse(course.id); setCoursePickerOpen(false) }}><div class="course-avatar compact"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div><span><strong>{course.name}</strong><small>{course.city}, {course.state}</small></span></button>}</For></div></Show>
           <span class="course-picker-help">{selectedEntryCourse() ? 'We’ll check only this course.' : 'Optional — the default searches every course.'}</span>
         </div>
@@ -332,7 +355,7 @@ export default function Dashboard() {
       <div class="result-filters" aria-label="Refine results"><div class="result-time"><TimeRangePicker value={timeRange()} onChange={setTimeRange} /></div><fieldset class="search-control search-players"><legend>Players</legend><div>{(['any', 2, 3, 4] as const).map((value) => <button type="button" classList={{ active: players() === value }} aria-pressed={players() === value} onClick={() => setPlayers(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><fieldset class="search-control search-holes"><legend>Holes</legend><div>{(['any', 9, 18] as const).map((value) => <button type="button" classList={{ active: holes() === value }} aria-pressed={holes() === value} onClick={() => setHoles(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset></div>
       <Show when={locationError()}>{(message) => <p class="location-error result-location-error">{message()}</p>}</Show>
       <Show when={error()}>{(message) => <div class="empty-state standalone">{message()}</div>}</Show>
-      <div class="course-grid"><For each={resultCourses()}>{(course) => { const distance = () => distanceFor(course); const courseTimes = () => timesFor(course.id); return <article class="course-card search-course-row"><header class="course-card-header"><div class="course-avatar"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div><div class="course-card-title"><span class="course-name">{course.name}</span><p>{course.city}, {course.state}<Show when={distance() !== undefined}> · {distance()!.toFixed(1)} mi</Show></p><Show when={!loadingCourseIds().includes(course.id) && courseTimes().length > 0}><span class="match-summary">{courseTimes().length} matching {courseTimes().length === 1 ? 'time' : 'times'}<Show when={sortMode() === 'availability'}> · {courseTimes().filter((tee) => (tee.availableSpots || 0) >= 4).length} open foursomes</Show></span></Show></div><div class="course-options" data-menu-root><button type="button" class="course-options-trigger" aria-label={`More options for ${course.name}`} aria-expanded={openMenu() === course.id} aria-haspopup="menu" onClick={() => setOpenMenu(openMenu() === course.id ? null : course.id)}>•••</button><Show when={openMenu() === course.id}><div class="course-menu-popover course-links-menu" role="menu"><a role="menuitem" href={googleMapsUrl(course)} target="_blank" rel="noreferrer" onClick={() => setOpenMenu(null)}>View on Google Maps</a><Show when={course.websiteUrl}><a role="menuitem" href={course.websiteUrl} target="_blank" rel="noreferrer" onClick={() => setOpenMenu(null)}>Visit course website</a></Show><a role="menuitem" href={course.bookingUrl} target="_blank" rel="noreferrer" onClick={() => setOpenMenu(null)}>Open booking site</a></div></Show></div></header><div class="tee-time-chips"><Show when={!loadingCourseIds().includes(course.id)} fallback={<div class="course-loading"><span class="loading-spinner" />Checking availability…</div>}><Show when={!failedCourseIds().includes(course.id)} fallback={<div class="course-empty">Couldn’t load this course.</div>}><For each={courseTimes()}>{(tee) => { const option = () => displayOption(tee); const shownPrice = () => option()?.price ?? tee.price; const shownHoles = () => holes() === 'any' ? tee.holes : holes(); return <a class="tee-time-chip" href={tee.bookingUrl} target="_blank" rel="noreferrer"><strong>{tee.time}</strong><span>{shownPrice() !== undefined ? `$${shownPrice()} · ` : ''}{shownHoles()} holes{tee.availableSpots ? ` · ${tee.availableSpots} ${tee.availableSpots === 1 ? 'spot' : 'spots'}` : ''}</span></a> }}</For></Show></Show></div></article> }}</For></div>
+      <div class="course-grid"><For each={resultCourses()}>{(course) => { const distance = () => distanceFor(course); const courseTimes = () => timesFor(course.id); return <article class="course-card search-course-row"><header class="course-card-header"><div class="course-avatar"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div><div class="course-card-title"><span class="course-name">{course.name}</span><p>{course.city}, {course.state}<Show when={distance() !== undefined}> · {distance()!.toFixed(1)} mi</Show></p><Show when={!loadingCourseIds().includes(course.id) && courseTimes().length > 0}><span class="match-summary">{courseTimes().length} matching {courseTimes().length === 1 ? 'time' : 'times'}<Show when={sortMode() === 'availability'}> · {courseTimes().filter((tee) => (tee.availableSpots || 0) >= 4).length} open foursomes</Show></span></Show></div><div class="course-options" data-menu-root><button type="button" class="course-options-trigger" aria-label={`More options for ${course.name}`} aria-expanded={openMenu() === course.id} aria-haspopup="menu" onClick={() => setOpenMenu(openMenu() === course.id ? null : course.id)}>•••</button><Show when={openMenu() === course.id}><div class="course-menu-popover course-links-menu" role="menu"><a role="menuitem" href={googleMapsUrl(course)} target="_blank" rel="noreferrer" onClick={() => setOpenMenu(null)}>View on Google Maps</a><Show when={course.websiteUrl}><a role="menuitem" href={course.websiteUrl} target="_blank" rel="noreferrer" onClick={() => setOpenMenu(null)}>Visit course website</a></Show><a role="menuitem" href={course.bookingUrl} target="_blank" rel="noreferrer" onClick={() => setOpenMenu(null)}>Open booking site</a></div></Show></div></header><TeeTimeScroller courseName={course.name}><Show when={!loadingCourseIds().includes(course.id)} fallback={<div class="course-loading"><span class="loading-spinner" />Checking availability…</div>}><Show when={!failedCourseIds().includes(course.id)} fallback={<div class="course-empty">Couldn’t load this course.</div>}><For each={courseTimes()}>{(tee) => { const option = () => displayOption(tee); const shownPrice = () => option()?.price ?? tee.price; const shownHoles = () => holes() === 'any' ? tee.holes : holes(); return <a class="tee-time-chip" href={tee.bookingUrl} target="_blank" rel="noreferrer"><strong>{tee.time}</strong><span>{shownPrice() !== undefined ? `$${shownPrice()} · ` : ''}{shownHoles()} holes{tee.availableSpots ? ` · ${tee.availableSpots} ${tee.availableSpots === 1 ? 'spot' : 'spots'}` : ''}</span></a> }}</For></Show></Show></TeeTimeScroller></article> }}</For></div>
       <Show when={!loading() && unavailableCourses().length > 0}><section class="unavailable-results"><div class="unavailable-heading"><h3>No matching tee times</h3><span>{unavailableCourses().length} {unavailableCourses().length === 1 ? 'course' : 'courses'} checked</span></div><div class="unavailable-list"><For each={unavailableCourses()}>{(course) => { const menuId = `unavailable-${course.id}`; return <article class="unavailable-course"><header class="unavailable-course-header"><div class="unavailable-course-identity"><div class="course-avatar"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div><div><strong>{course.name}</strong><span>{course.city}, {course.state}</span></div></div><div class="course-options unavailable-options" data-menu-root><button type="button" class="course-options-trigger" aria-label={`More options for ${course.name}`} aria-expanded={openMenu() === menuId} aria-haspopup="menu" onClick={() => setOpenMenu(openMenu() === menuId ? null : menuId)}>•••</button><Show when={openMenu() === menuId}><div class="course-menu-popover course-links-menu" role="menu"><a role="menuitem" href={googleMapsUrl(course)} target="_blank" rel="noreferrer" onClick={() => setOpenMenu(null)}>View on Google Maps</a><Show when={course.websiteUrl}><a role="menuitem" href={course.websiteUrl} target="_blank" rel="noreferrer" onClick={() => setOpenMenu(null)}>Visit course website</a></Show><a role="menuitem" href={course.bookingUrl} target="_blank" rel="noreferrer" onClick={() => setOpenMenu(null)}>Open booking site</a></div></Show></div></header><div class="unavailable-message">{unavailableReason(course.id)}</div></article> }}</For></div></section></Show>
       <Show when={!loading() && !error() && resultCourses().length === 0 && unavailableCourses().length === 0}><div class="no-results"><h3>No tee times match those filters.</h3><p>Try a wider time range or different player and hole options.</p><button type="button" onClick={() => { setPlayers('any'); setHoles('any'); setTimeRange([...fullDayRange]); setSortMode('relevance') }}>Clear filters</button></div></Show>
     </section>
