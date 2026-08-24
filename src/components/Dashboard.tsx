@@ -284,7 +284,7 @@ export default function Dashboard() {
     if (entryIntent() === 'now') searchPlayNow()
     else if (entryIntent() === 'tonight' && !combineImmediateChoices) searchTonight()
     else if (entryIntent() === 'tonight') searchPlayNow()
-    else runSearch()
+    else { setTimeRange([...fullDayRange]); runSearch() }
   }
   function chooseSortMode(next: SortMode) {
     if (next === 'distance' && !location()) { findNearMe('distance'); return }
@@ -336,9 +336,9 @@ export default function Dashboard() {
         <div class="entry-choices" role="radiogroup" aria-label="When do you want to play?">
           <button type="button" role="radio" aria-checked={entryIntent() === 'now'} classList={{ active: entryIntent() === 'now' }} onClick={() => { setEntryIntent('now'); setChoosingDate(false) }}><strong>Play now</strong><span>Today · next 3 hours</span></button>
           <Show when={!combineImmediateChoices}><button type="button" role="radio" aria-checked={entryIntent() === 'tonight'} classList={{ active: entryIntent() === 'tonight' }} onClick={() => { setEntryIntent('tonight'); setChoosingDate(false) }}><strong>Play tonight</strong><span>Today · after 4 PM</span></button></Show>
-          <button type="button" role="radio" aria-checked={entryIntent() === 'date'} classList={{ active: entryIntent() === 'date' }} onClick={() => { setEntryIntent('date'); setChoosingDate(true) }}><strong>Choose date and time</strong><span>Set a custom window</span></button>
+          <button type="button" role="radio" aria-checked={entryIntent() === 'date'} classList={{ active: entryIntent() === 'date' }} onClick={() => { setEntryIntent('date'); setChoosingDate(true) }}><strong>Choose a date</strong><span>Open the calendar</span></button>
         </div>
-        <Show when={choosingDate()}><div class="entry-date"><div class="search-control date-control"><label>Date</label><div class="board-date-nav"><button type="button" class="date-arrow" disabled={day() === dateValue(new Date())} onClick={() => stepDay(-1)} aria-label="Previous day">‹</button><CalendarPicker value={day()} label={dayLabel()} onChange={changeDay} /><button type="button" class="date-arrow" onClick={() => stepDay(1)} aria-label="Next day">›</button></div></div><TimeRangePicker value={timeRange()} onChange={setTimeRange} /></div></Show>
+        <Show when={choosingDate()}><div class="entry-date"><div class="search-control date-control"><label>Date</label><div class="board-date-nav"><button type="button" class="date-arrow" disabled={day() === dateValue(new Date())} onClick={() => stepDay(-1)} aria-label="Previous day">‹</button><CalendarPicker value={day()} label={dayLabel()} onChange={changeDay} /><button type="button" class="date-arrow" onClick={() => stepDay(1)} aria-label="Next day">›</button></div></div></div></Show>
         <div class="entry-course-choice" data-course-picker>
           <label>Have a course in mind?</label>
           <button type="button" class="course-picker-trigger" aria-haspopup="listbox" aria-expanded={coursePickerOpen()} onClick={() => setCoursePickerOpen(!coursePickerOpen())}><Show when={selectedCourse()} fallback={<div class="course-picker-all-icon">All</div>}>{(course) => <div class="course-avatar compact"><Show when={course().logoUrl} fallback={course().name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div>}</Show><span><strong>{selectedCourse()?.name || 'Search all courses'}</strong><small>{selectedCourse() ? `${selectedCourse()!.city}, ${selectedCourse()!.state}` : 'Compare every available course'}</small></span><svg class="course-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5" /></svg></button>
