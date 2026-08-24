@@ -249,6 +249,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'Chronogolf v2',
     bookingUrl: 'https://www.chronogolf.com/club/the-overlook-golf-club',
     authType: 'none',
+    latitude: 42.7186155,
+    longitude: -71.542304,
     logoUrl: '/course-logos/overlook.png',
     chronogolfV2: {
       courseUuid: 'c8913361-ea13-4fa3-8af8-a82c552fdc17',
@@ -263,6 +265,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'ForeUP',
     bookingUrl: 'https://foreupsoftware.com/index.php/booking/22278/10318#/teetimes?merchant_id=22278',
     authType: 'none',
+    latitude: 42.7382981,
+    longitude: -71.3063836,
     logoUrl: '/course-logos/pine-valley.png',
     foreUp: {
       courseId: 22278,
@@ -298,6 +302,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'Total e Integrated',
     bookingUrl: 'https://atkinson.totaleintegrated.net/',
     authType: 'none',
+    latitude: 42.8193814,
+    longitude: -71.1823667,
     logoUrl: '/course-logos/atkinson.png',
     totalEIntegrated: {
       courseId: 'ATKINSON 18',
@@ -312,6 +318,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'Total e Integrated',
     bookingUrl: 'https://atkinson.totaleintegrated.net/',
     authType: 'none',
+    latitude: 42.8193814,
+    longitude: -71.1823667,
     logoUrl: '/course-logos/atkinson.png',
     totalEIntegrated: {
       courseId: 'PAR 3',
@@ -326,6 +334,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'TeeItUp',
     bookingUrl: 'https://6391c422-2e57-4bc3-a1b3-8a6676c82588.book.teeitup.com/',
     authType: 'none',
+    latitude: 42.756612,
+    longitude: -71.2464334,
     timeZone: 'America/New_York',
     logoUrl: '/course-logos/scottish-highlands.png',
     teeItUp: {
@@ -343,6 +353,8 @@ export const courses: CourseConfig[] = [
     bookingUrl: 'https://merrimack-valley-golf-club.book.teeitup.com/',
     authType: 'none',
     logoUrl: '/course-logos/merrimack-valley.png',
+    latitude: 42.7537812,
+    longitude: -71.1770565,
     timeZone: 'America/New_York',
     teeItUp: {
       facilityId: 16619,
@@ -358,6 +370,8 @@ export const courses: CourseConfig[] = [
     bookingSystem: 'TeeItUp',
     bookingUrl: 'https://the-links-at-labelle-winery.book.teeitup.com/',
     authType: 'none',
+    latitude: 42.8553431,
+    longitude: -71.212806,
     timeZone: 'America/New_York',
     logoUrl: '/course-logos/labelle.png',
     teeItUp: {
