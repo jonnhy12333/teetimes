@@ -600,6 +600,7 @@ export const courses: CourseConfig[] = [
     longitude: -71.2464334,
     timeZone: 'America/New_York',
     logoUrl: '/course-logos/scottish-highlands.png',
+    headerImageUrl: '/course-headers/scottish-highlands.jpg',
     details: {
       type: 'Semi-private', holes: 18, par: 71, yardageMin: 4678, yardageMax: 6249,
       address: '79 Brady Avenue, Salem, NH 03079', phone: '(603) 894-4653',
@@ -679,6 +680,7 @@ export const courses: CourseConfig[] = [
     longitude: -71.3124,
     timeZone: 'America/New_York',
     logoUrl: '/course-logos/windham-cc.png',
+    headerImageUrl: '/course-headers/windham.jpg',
     details: {
       type: 'Public', holes: 18, par: 72, yardageMin: 5512, yardageMax: 6430,
       address: '1 Country Club Road, Windham, NH 03087', phone: '(603) 434-2093',

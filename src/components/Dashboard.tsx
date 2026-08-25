@@ -42,8 +42,9 @@ function parseTimeRange(params: URLSearchParams): TimeRange {
   if (legacy === 'evening') return [17 * 60, timeMaximum]
   if (legacy === 'next-3-hours') {
     const now = new Date()
-    const start = Math.min(Math.max(timeMinimum, Math.ceil((now.getHours() * 60 + now.getMinutes()) / 15) * 15), timeMaximum - 15)
-    return [start, Math.min(start + 180, timeMaximum)]
+    const minutes = now.getHours() * 60 + now.getMinutes()
+    const start = Math.min(Math.max(timeMinimum, Math.floor(minutes / 15) * 15), timeMaximum - 15)
+    return [start, Math.min(Math.ceil((minutes + 180) / 15) * 15, timeMaximum)]
   }
   return [...fullDayRange]
 }
@@ -85,6 +86,50 @@ function formatMinutes(value: number) {
   const hour = Math.floor(value / 60)
   const minutes = value % 60
   return `${hour % 12 || 12}:${String(minutes).padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`
+}
+
+const timelinePixelsPerMinute = 5.5
+const timelineEdgePadding = 28
+// Used only to reserve enough timeline space when assigning overlapping times to lanes.
+const timelineChipWidth = 43
+const timelineChipHeight = 24
+const timelineLaneHeight = 34
+
+function positionTimelineTimes(times: TeeTime[]) {
+  const laneEnds: number[] = []
+  const chipDuration = timelineChipWidth / timelinePixelsPerMinute
+  const items = [...times].sort((a, b) => timeValue(a.time) - timeValue(b.time)).map((tee) => {
+    const start = timeValue(tee.time)
+    let lane = laneEnds.findIndex((end) => start >= end)
+    if (lane < 0) lane = laneEnds.length
+    laneEnds[lane] = start + chipDuration
+    return { tee, start, lane }
+  })
+  return { items, lanes: Math.max(1, laneEnds.length) }
+}
+
+function dedupeTeeTimes(times: TeeTime[]) {
+  const byTime = new Map<string, TeeTime>()
+  for (const tee of times) {
+    const existing = byTime.get(tee.time)
+    if (!existing) { byTime.set(tee.time, { ...tee, options: tee.options ? [...tee.options] : undefined }); continue }
+    const prices = [existing.price, tee.price].filter((price): price is number => typeof price === 'number')
+    const optionPrices = new Map<9 | 18, number | undefined>()
+    for (const option of [...(existing.options || []), ...(tee.options || [])]) {
+      const current = optionPrices.get(option.holes)
+      if (current === undefined || (option.price !== undefined && option.price < current)) optionPrices.set(option.holes, option.price)
+    }
+    const options = Array.from(optionPrices, ([holes, price]) => ({ holes, price }))
+    const holeValues = new Set([existing.holes, tee.holes, ...options.map((option) => option.holes)])
+    byTime.set(tee.time, {
+      ...existing,
+      holes: holeValues.has('9/18') || (holeValues.has(9) && holeValues.has(18)) ? '9/18' : existing.holes,
+      options: options.length ? options : existing.options,
+      price: prices.length ? Math.min(...prices) : undefined,
+      availableSpots: Math.max(existing.availableSpots || 0, tee.availableSpots || 0) || undefined,
+    })
+  }
+  return Array.from(byTime.values()).sort((a, b) => timeValue(a.time) - timeValue(b.time))
 }
 
 function distanceInMiles(from: Coordinates, course: Course) {
@@ -206,7 +251,43 @@ export default function Dashboard() {
   const [infoCourse, setInfoCourse] = createSignal<Course | null>(null)
   const [choosingDate, setChoosingDate] = createSignal(false)
   const [entryIntent, setEntryIntent] = createSignal<EntryIntent>('now')
+  const [currentMinutes, setCurrentMinutes] = createSignal(new Date().getHours() * 60 + new Date().getMinutes())
   let loadRequest = 0
+  let timelineScroller!: HTMLDivElement
+  let timelineDragStartX = 0
+  let timelineDragStartScroll = 0
+  let timelineDragPointer: number | undefined
+  let suppressTimelineClick = false
+
+  const beginTimelineDrag: JSX.EventHandler<HTMLDivElement, PointerEvent> = (event) => {
+    if (event.pointerType !== 'mouse' || event.button !== 0 || (event.target as HTMLElement).closest('button, input, select')) return
+    timelineDragPointer = event.pointerId
+    timelineDragStartX = event.clientX
+    timelineDragStartScroll = event.currentTarget.scrollLeft
+    suppressTimelineClick = false
+    event.currentTarget.setPointerCapture(event.pointerId)
+    event.currentTarget.classList.add('is-dragging')
+  }
+  const moveTimelineDrag: JSX.EventHandler<HTMLDivElement, PointerEvent> = (event) => {
+    if (timelineDragPointer !== event.pointerId) return
+    const distance = event.clientX - timelineDragStartX
+    if (Math.abs(distance) > 4) suppressTimelineClick = true
+    if (!suppressTimelineClick) return
+    event.preventDefault()
+    event.currentTarget.scrollLeft = timelineDragStartScroll - distance
+  }
+  const endTimelineDrag: JSX.EventHandler<HTMLDivElement, PointerEvent> = (event) => {
+    if (timelineDragPointer !== event.pointerId) return
+    timelineDragPointer = undefined
+    event.currentTarget.classList.remove('is-dragging')
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    setTimeout(() => { suppressTimelineClick = false }, 0)
+  }
+  const handleTimelineClick: JSX.EventHandler<HTMLDivElement, MouseEvent> = (event) => {
+    if (!suppressTimelineClick) return
+    event.preventDefault()
+    event.stopPropagation()
+  }
 
   createEffect(() => { document.documentElement.dataset.theme = theme(); localStorage.setItem('theme', theme()) })
   createEffect(() => {
@@ -248,13 +329,23 @@ export default function Dashboard() {
     return requestedPlayers === 'any' || (tee.availableSpots !== undefined && tee.availableSpots >= requestedPlayers)
   }))
   const displayOption = (tee: TeeTime) => holes() === 'any' ? undefined : tee.options?.find((option) => option.holes === holes())
-  const timesFor = (courseId: string) => filteredTimes().filter((tee) => tee.courseId === courseId)
+  const timesFor = (courseId: string) => dedupeTeeTimes(filteredTimes().filter((tee) => tee.courseId === courseId))
+  const timelineWidth = createMemo(() => Math.max(900, (timeRange()[1] - timeRange()[0]) * timelinePixelsPerMinute + timelineChipWidth + timelineEdgePadding * 2))
+  const showCurrentTime = createMemo(() => day() === dateValue(new Date()) && currentMinutes() >= timeRange()[0] && currentMinutes() <= timeRange()[1])
+  const currentTimeLeft = createMemo(() => timelineEdgePadding + (currentMinutes() - timeRange()[0]) * timelinePixelsPerMinute)
+  const timelineTicks = createMemo(() => {
+    const ticks: number[] = []
+    const first = Math.ceil(timeRange()[0] / 60) * 60
+    for (let value = first; value <= timeRange()[1]; value += 60) ticks.push(value)
+    return ticks
+  })
+  const timelineFor = (courseId: string) => positionTimelineTimes(timesFor(courseId))
   const distanceFor = (course: Course) => location() ? distanceInMiles(location()!, course) : undefined
   const availabilityScore = (course: Course) => { const times = timesFor(course.id); return times.length + times.filter((tee) => (tee.availableSpots || 0) >= 4).length * 2 }
   const selectedCourse = createMemo(() => courses().find((course) => course.id === selectedEntryCourse()))
   const coursesByName = createMemo(() => [...courses()].sort((a, b) => a.name.localeCompare(b.name)))
   const resultCourses = createMemo(() => {
-    return courses().filter((course) => searchedCourseIds().includes(course.id)).filter((course) => loadingCourseIds().includes(course.id) || failedCourseIds().includes(course.id) || timesFor(course.id).length > 0).sort((a, b) => {
+    return courses().filter((course) => searchedCourseIds().includes(course.id)).sort((a, b) => {
       if (sortMode() === 'name') return a.name.localeCompare(b.name)
       if (sortMode() === 'availability') return availabilityScore(b) - availabilityScore(a) || a.name.localeCompare(b.name)
       if (sortMode() === 'walk-on') return availabilityScore(b) - availabilityScore(a) || (distanceFor(a) ?? Number.MAX_SAFE_INTEGER) - (distanceFor(b) ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name)
@@ -262,8 +353,17 @@ export default function Dashboard() {
       return timesFor(b.id).length - timesFor(a.id).length || a.name.localeCompare(b.name)
     })
   })
-  const unavailableCourses = createMemo(() => {
-    return courses().filter((course) => searchedCourseIds().includes(course.id)).filter((course) => !loadingCourseIds().includes(course.id) && !failedCourseIds().includes(course.id) && timesFor(course.id).length === 0).sort((a, b) => a.name.localeCompare(b.name))
+
+  createEffect(() => {
+    const selectedDay = day()
+    if (!searchActivated() || selectedDay !== dateValue(new Date())) return
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (!timelineScroller) return
+      const courseWidth = timelineScroller.querySelector<HTMLElement>('.timeline-course-heading')?.offsetWidth || 0
+      const targetMinutes = Math.min(timeRange()[1], Math.max(timeRange()[0], currentMinutes()))
+      const targetLeft = timelineEdgePadding + (targetMinutes - timeRange()[0]) * timelinePixelsPerMinute - (timelineScroller.clientWidth - courseWidth) / 2
+      timelineScroller.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' })
+    }))
   })
   function unavailableReason(courseId: string) {
     const courseTimes = currentTimes().filter((tee) => tee.courseId === courseId)
@@ -323,7 +423,7 @@ export default function Dashboard() {
     setError(null)
     setLocationError(null)
   }
-  function playNowRange(): TimeRange { const now = new Date(); const start = Math.min(Math.max(timeMinimum, Math.ceil((now.getHours() * 60 + now.getMinutes()) / 15) * 15), timeMaximum - 15); return [start, Math.min(start + 180, timeMaximum)] }
+  function playNowRange(): TimeRange { const now = new Date(); const minutes = now.getHours() * 60 + now.getMinutes(); const start = Math.min(Math.max(timeMinimum, Math.floor(minutes / 15) * 15), timeMaximum - 15); return [start, Math.min(Math.ceil((minutes + 180) / 15) * 15, timeMaximum)] }
   function searchPlayNow() { const today = dateValue(new Date()); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange(playNowRange()); setSortMode('walk-on'); setDay(today); void loadSearch(today); findNearMe('walk-on') }
   function searchTonight() { const today = dateValue(new Date()); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange([16 * 60, timeMaximum]); setSortMode('availability'); setDay(today); void loadSearch(today) }
   function submitEntrySearch() {
@@ -364,11 +464,13 @@ export default function Dashboard() {
     document.addEventListener('pointerdown', closeOnOutsideClick)
     document.addEventListener('keydown', closeOnEscape)
     window.addEventListener('popstate', restoreFromUrl)
+    const clockTimer = window.setInterval(() => { const now = new Date(); setCurrentMinutes(now.getHours() * 60 + now.getMinutes()) }, 60_000)
     if (initialSearch.sort === 'distance') findNearMe('distance')
     onCleanup(() => {
       document.removeEventListener('pointerdown', closeOnOutsideClick)
       document.removeEventListener('keydown', closeOnEscape)
       window.removeEventListener('popstate', restoreFromUrl)
+      window.clearInterval(clockTimer)
     })
   })
 
@@ -401,9 +503,49 @@ export default function Dashboard() {
       <div class="result-filters" aria-label="Refine results"><div class="result-time"><TimeRangePicker value={timeRange()} onChange={setTimeRange} /></div><fieldset class="search-control search-players"><legend>Players</legend><div>{(['any', 2, 3, 4] as const).map((value) => <button type="button" classList={{ active: players() === value }} aria-pressed={players() === value} onClick={() => setPlayers(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><fieldset class="search-control search-holes"><legend>Holes</legend><div>{(['any', 9, 18] as const).map((value) => <button type="button" classList={{ active: holes() === value }} aria-pressed={holes() === value} onClick={() => setHoles(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset></div>
       <Show when={locationError()}>{(message) => <p class="location-error result-location-error">{message()}</p>}</Show>
       <Show when={error()}>{(message) => <div class="empty-state standalone">{message()}</div>}</Show>
-      <div class="course-grid"><For each={resultCourses()}>{(course) => { const distance = () => distanceFor(course); const courseTimes = () => timesFor(course.id); return <article class="course-card search-course-row"><header class="course-card-header"><div class="course-avatar"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div><div class="course-card-title"><span class="course-name">{course.name}</span><p>{course.city}, {course.state}<Show when={distance() !== undefined}> · {distance()!.toFixed(1)} mi</Show></p><Show when={!loadingCourseIds().includes(course.id) && courseTimes().length > 0}><span class="match-summary">{courseTimes().length} matching {courseTimes().length === 1 ? 'time' : 'times'}<Show when={sortMode() === 'availability'}> · {courseTimes().filter((tee) => (tee.availableSpots || 0) >= 4).length} open foursomes</Show></span></Show></div><button type="button" class="course-info-trigger" aria-label={`View information about ${course.name}`} title="Course information" onClick={() => setInfoCourse(course)}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg></button></header><TeeTimeScroller courseName={course.name}><Show when={!loadingCourseIds().includes(course.id)} fallback={<div class="course-loading"><span class="loading-spinner" />Checking availability…</div>}><Show when={!failedCourseIds().includes(course.id)} fallback={<div class="course-empty">Couldn’t load this course.</div>}><For each={courseTimes()}>{(tee) => { const option = () => displayOption(tee); const shownPrice = () => option()?.price ?? tee.price; const shownHoles = () => holes() === 'any' ? tee.holes : holes(); return <a class="tee-time-chip" classList={{ 'availability-best': (tee.availableSpots || 0) >= 4, 'availability-low': tee.availableSpots === 1 }} href={tee.bookingUrl} target="_blank" rel="noreferrer"><strong>{tee.time}</strong><span class="tee-time-holes">{shownHoles()}</span><span class="tee-time-meta">{shownPrice() !== undefined ? String.fromCharCode(36) + shownPrice() : ''}{shownPrice() !== undefined && tee.availableSpots ? ' · ' : ''}{tee.availableSpots ? `${tee.availableSpots} ${tee.availableSpots === 1 ? 'spot' : 'spots'}` : ''}</span></a> }}</For></Show></Show></TeeTimeScroller></article> }}</For></div>
-      <Show when={!loading() && unavailableCourses().length > 0}><section class="unavailable-results"><div class="unavailable-heading"><h3>No matching tee times</h3><span>{unavailableCourses().length} {unavailableCourses().length === 1 ? 'course' : 'courses'} checked</span></div><div class="unavailable-list"><For each={unavailableCourses()}>{(course) => { return <article class="unavailable-course"><header class="unavailable-course-header"><div class="unavailable-course-identity"><div class="course-avatar"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div><div><strong>{course.name}</strong><span>{course.city}, {course.state}</span></div></div><button type="button" class="course-info-trigger unavailable-options" aria-label={`View information about ${course.name}`} title="Course information" onClick={() => setInfoCourse(course)}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg></button></header><div class="unavailable-message">{unavailableReason(course.id)}</div></article> }}</For></div></section></Show>
-      <Show when={!loading() && !error() && resultCourses().length === 0 && unavailableCourses().length === 0}><div class="no-results"><h3>No tee times match those filters.</h3><p>Try a wider time range or different player and hole options.</p><button type="button" onClick={() => { setPlayers('any'); setHoles('any'); setTimeRange([...fullDayRange]); setSortMode('relevance') }}>Clear filters</button></div></Show>
+      <div class="timeline-board">
+        <div class="timeline-scroll" ref={timelineScroller} onPointerDown={beginTimelineDrag} onPointerMove={moveTimelineDrag} onPointerUp={endTimelineDrag} onPointerCancel={endTimelineDrag} onClickCapture={handleTimelineClick}>
+          <div class="timeline-canvas">
+            <div class="timeline-ruler">
+              <div class="timeline-course-heading">Course</div>
+              <div class="timeline-ruler-track" style={{ width: `${timelineWidth()}px` }}>
+                <For each={timelineTicks()}>{(tick) => <span style={{ left: `${timelineEdgePadding + (tick - timeRange()[0]) * timelinePixelsPerMinute}px` }}>{formatMinutes(tick).replace(':00', '')}</span>}</For>
+                <Show when={showCurrentTime()}><i class="timeline-now timeline-now-ruler" style={{ left: `${currentTimeLeft()}px` }}><span>Now</span></i></Show>
+              </div>
+            </div>
+            <For each={resultCourses()}>{(course) => {
+              const distance = () => distanceFor(course)
+              const timeline = () => timelineFor(course.id)
+              const timelineHeight = () => Math.max(54, timeline().lanes * timelineLaneHeight + 12)
+              const laneBlockHeight = () => timelineChipHeight + Math.max(0, timeline().lanes - 1) * timelineLaneHeight
+              const laneBlockTop = () => (timelineHeight() - laneBlockHeight()) / 2
+              return <article class="timeline-course-row" classList={{ 'no-matches': !loadingCourseIds().includes(course.id) && !failedCourseIds().includes(course.id) && timeline().items.length === 0 }}>
+                <header class="course-card-header timeline-course-header">
+                  <button type="button" class="course-avatar course-avatar-button" aria-label={`View information about ${course.name}`} title={course.name} onClick={() => setInfoCourse(course)}><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></button>
+                  <div class="course-card-title"><button type="button" class="course-name course-name-button" onClick={() => setInfoCourse(course)}>{course.name}</button><p>{course.city}, {course.state}<Show when={distance() !== undefined}> · {distance()!.toFixed(1)} mi</Show></p></div>
+                </header>
+                <div class="timeline-track" style={{ width: `${timelineWidth()}px`, height: `${timelineHeight()}px` }}>
+                  <For each={timelineTicks()}>{(tick) => <i class="timeline-gridline" style={{ left: `${timelineEdgePadding + (tick - timeRange()[0]) * timelinePixelsPerMinute}px` }} />}</For>
+                  <Show when={showCurrentTime()}><i class="timeline-now" style={{ left: `${currentTimeLeft()}px` }} /></Show>
+                  <Show when={!loadingCourseIds().includes(course.id)} fallback={<div class="course-loading timeline-status"><span class="loading-spinner" />Checking availability…</div>}>
+                    <Show when={!failedCourseIds().includes(course.id)} fallback={<div class="course-empty timeline-status">Couldn’t load this course.</div>}>
+                      <For each={timeline().items}>{(item) => {
+                        const option = () => displayOption(item.tee)
+                        const shownPrice = () => option()?.price ?? item.tee.price
+                        const shownHoles = () => holes() === 'any' ? item.tee.holes : holes()
+                        const details = () => [shownPrice() !== undefined ? `${String.fromCharCode(36)}${shownPrice()}` : undefined, `${shownHoles()} holes`, item.tee.availableSpots ? `${item.tee.availableSpots} ${item.tee.availableSpots === 1 ? 'spot' : 'spots'}` : undefined].filter(Boolean).join(' · ')
+                        return <a class="tee-time-chip timeline-tee-time" classList={{ 'availability-best': (item.tee.availableSpots || 0) >= 4, 'availability-low': item.tee.availableSpots === 1 }} style={{ left: `${timelineEdgePadding + (item.start - timeRange()[0]) * timelinePixelsPerMinute}px`, top: `${laneBlockTop() + item.lane * timelineLaneHeight}px` }} data-tooltip={details()} aria-label={`${item.tee.time}. ${details()}`} href={item.tee.bookingUrl} target="_blank" rel="noreferrer"><strong>{item.tee.time.replace(/\s[AP]M$/i, '')}</strong></a>
+                      }}</For>
+                      <Show when={timeline().items.length === 0}><div class="course-empty timeline-status timeline-empty-status"><span>{unavailableReason(course.id)}</span></div></Show>
+                    </Show>
+                  </Show>
+                </div>
+              </article>
+            }}</For>
+          </div>
+        </div>
+      </div>
+      <Show when={!loading() && !error() && resultCourses().length === 0}><div class="no-results"><h3>No courses were available to search.</h3></div></Show>
     </section>
     </Show>
   </main><Show when={infoCourse()}>{(course) => <CourseInfoModal course={course()} onClose={() => setInfoCourse(null)} />}</Show></div>
