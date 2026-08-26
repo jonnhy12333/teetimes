@@ -103,7 +103,11 @@ interface ForeUpTeeTime {
   holes: 9 | 18 | '9/18'
   available_spots: number
   green_fee: number | false
+  green_fee_9?: number | false
+  green_fee_18?: number | false
   cart_fee: number | false
+  cart_fee_9?: number | false
+  cart_fee_18?: number | false
 }
 
 interface SupremeGolfTeeTimeGroup {
@@ -340,6 +344,7 @@ export const courses: CourseConfig[] = [
     latitude: 42.866,
     longitude: -71.477,
     logoUrl: '/course-logos/passaconaway.png',
+    headerImageUrl: '/course-headers/passaconaway.jpg',
     details: {
       type: 'Public', holes: 18,
       address: '12 Midway Avenue, Litchfield, NH 03052', phone: '(603) 424-4653',
@@ -388,6 +393,7 @@ export const courses: CourseConfig[] = [
     latitude: 42.7382981,
     longitude: -71.3063836,
     logoUrl: '/course-logos/pine-valley.png',
+    headerImageUrl: '/course-headers/pine-valley.jpg',
     details: {
       type: 'Public', holes: 9, par: 35,
       address: '247 Main Street, Pelham, NH 03076',
@@ -470,6 +476,7 @@ export const courses: CourseConfig[] = [
     latitude: 42.8705,
     longitude: -71.6074,
     logoUrl: '/course-logos/souhegan-woods.png',
+    headerImageUrl: '/course-headers/souhegan-woods.jpg',
     details: {
       type: 'Public', holes: 18, par: 72, yardageMin: 5101, yardageMax: 6236,
       phone: '(603) 673-0200',
@@ -574,6 +581,7 @@ export const courses: CourseConfig[] = [
     longitude: -70.8170979,
     timeZone: 'America/New_York',
     logoUrl: '/course-logos/breakfast-hill.png',
+    headerImageUrl: '/course-headers/breakfast-hill.jpg',
     details: {
       type: 'Public',
       holes: 18,
@@ -591,6 +599,33 @@ export const courses: CourseConfig[] = [
       alias: 'breakfast-hill-golf-club',
     },
     notes: 'Public TeeItUp/Kenna endpoint.',
+  },
+  {
+    id: 'crystal-lake-golf-club',
+    name: 'Crystal Lake Golf Club',
+    city: 'Haverhill',
+    state: 'MA',
+    bookingSystem: 'TeeItUp',
+    bookingUrl: 'https://crystal-lake-golf.book.teeitup.com/',
+    websiteUrl: 'https://www.crystallake-golf.com/',
+    authType: 'none',
+    latitude: 42.806,
+    longitude: -71.14,
+    timeZone: 'America/New_York',
+    logoUrl: '/course-logos/crystal-lake.png',
+    headerImageUrl: '/course-headers/crystal-lake.jpg',
+    details: {
+      type: 'Public', holes: 18, par: 71, yardageMin: 5399, yardageMax: 6504,
+      address: '940 North Broadway, Haverhill, MA 01832', phone: '(978) 377-0655',
+      description: 'A Geoffrey Cornish-designed parkland course with rolling, tree-lined fairways and bentgrass greens.',
+      amenities: ['Golf carts', 'Club rentals', 'Putting green', 'Chipping area', 'Golf instruction', 'Golf shop', 'Restaurant'],
+      tees: [{ name: 'Blue', yardage: 6504, rating: 72.4, slope: 129 }, { name: 'White', yardage: 6280 }, { name: 'Yellow', yardage: 5544 }, { name: 'Red', yardage: 5399 }],
+    },
+    teeItUp: {
+      facilityId: 13676,
+      alias: 'crystal-lake-golf',
+    },
+    notes: 'Public TeeItUp/Kenna endpoint with 9- and 18-hole rates.',
   },
   {
     id: 'campbells-scottish-highlands',
@@ -629,6 +664,7 @@ export const courses: CourseConfig[] = [
     websiteUrl: 'https://merrimackvalleygolfclub.com/',
     authType: 'none',
     logoUrl: '/course-logos/merrimack-valley.png',
+    headerImageUrl: '/course-headers/merrimack-valley.jpg',
     latitude: 42.7537812,
     longitude: -71.1770565,
     timeZone: 'America/New_York',
@@ -671,6 +707,62 @@ export const courses: CourseConfig[] = [
       alias: 'the-links-at-labelle-winery',
     },
     notes: 'Public TeeItUp/Kenna endpoint. Nine-hole par-3 course.',
+  },
+  {
+    id: 'stonebridge-country-club',
+    name: 'Stonebridge Country Club',
+    city: 'Goffstown',
+    state: 'NH',
+    bookingSystem: 'ForeUP',
+    bookingUrl: 'https://foreupsoftware.com/index.php/booking/22418/10727#/teetimes?merchant_id=22418',
+    websiteUrl: 'https://golfstonebridgecc.com/',
+    authType: 'none',
+    latitude: 43.0371415,
+    longitude: -71.6316381,
+    timeZone: 'America/New_York',
+    logoUrl: '/course-logos/stonebridge.png',
+    headerImageUrl: '/course-headers/stonebridge.jpg',
+    details: {
+      type: 'Public', holes: 18, par: 72, yardageMin: 4747, yardageMax: 6808,
+      address: '161 Gorham Pond Road, Goffstown, NH 03045', phone: '(603) 497-8633',
+      description: 'An award-winning championship course with panoramic New Hampshire countryside views.',
+      amenities: ['Driving range', 'Putting green', 'Chipping area', 'Golf lessons', 'Club fitting', 'Golf shop', 'Locker rooms', 'Club rentals', 'Restaurant'],
+      tees: [{ name: 'Championship', yardage: 6808, rating: 73.4, slope: 136 }, { name: 'Regulation', yardage: 6326, rating: 70.9, slope: 133 }, { name: 'Senior', yardage: 5567, rating: 67.2, slope: 122 }, { name: 'Ladies', yardage: 4747, rating: 67.6, slope: 116 }],
+    },
+    foreUp: {
+      courseId: 22418,
+      bookingClass: 49100,
+      scheduleId: 10727,
+    },
+    notes: 'Public ForeUP tee times with distinct 9- and 18-hole rates.',
+  },
+  {
+    id: 'whip-poor-will-golf-club',
+    name: 'Whip-Poor-Will Golf Club',
+    city: 'Hudson',
+    state: 'NH',
+    bookingSystem: 'Chronogolf',
+    bookingUrl: 'https://www.chronogolf.com/club/whip-poor-will-golf-course',
+    websiteUrl: 'https://whippoorwillgolf.com/',
+    authType: 'none',
+    latitude: 42.7865104,
+    longitude: -71.4301592,
+    timeZone: 'America/New_York',
+    logoUrl: '/course-logos/whip-poor-will.png',
+    headerImageUrl: '/course-headers/whip-poor-will.jpg',
+    details: {
+      type: 'Public', holes: 9, par: 36, yardageMin: 3015, yardageMax: 3015,
+      address: '55 Marsh Road, Hudson, NH 03051', phone: '(603) 889-9706',
+      description: 'A golfer-friendly nine-hole course built in the late 1950s and known for its Vesper Velvet greens.',
+      amenities: ['Golf shop', 'Tournament services'],
+    },
+    chronogolf: {
+      clubId: 9834,
+      courseId: 11274,
+      affiliationTypeId: 40158,
+      holes: 9,
+    },
+    notes: 'Public Chronogolf marketplace tee times. Provider does not expose numeric spot counts or public prices.',
   },
   {
     id: 'windham-country-club',
@@ -762,21 +854,30 @@ async function getForeUpTeeTimes(course: CourseConfig, date: string): Promise<Te
 
   const teeTimes = await response.json() as ForeUpTeeTime[]
 
-  return teeTimes.map((teeTime, index) => ({
-    id: `${course.id}-${date}-${index}`,
-    courseId: course.id,
-    courseName: teeTime.course_name || course.name,
-    time: formatTimeLabel(teeTime.time),
-    date,
-    holes: teeTime.holes,
-    options: (teeTime.holes === '9/18' ? [9, 18] as const : [teeTime.holes]).map((holes) => ({ holes, price: typeof teeTime.green_fee === 'number' ? teeTime.green_fee : undefined })),
-    price: typeof teeTime.green_fee === 'number' ? teeTime.green_fee : undefined,
-    cartFee: typeof teeTime.cart_fee === 'number' ? teeTime.cart_fee : undefined,
-    availableSpots: teeTime.available_spots,
-    bookingUrl: course.bookingUrl,
-    authRequired: false,
-    authType: course.authType,
-  }))
+  return teeTimes.map((teeTime, index) => {
+    const holesOffered = teeTime.holes === '9/18' ? [9, 18] as const : [teeTime.holes]
+    const priceFor = (holes: 9 | 18) => {
+      const price = holes === 9 ? teeTime.green_fee_9 : teeTime.green_fee_18
+      return typeof price === 'number' ? price : typeof teeTime.green_fee === 'number' ? teeTime.green_fee : undefined
+    }
+    const cartFee = teeTime.holes === 9 ? teeTime.cart_fee_9 : teeTime.cart_fee_18
+
+    return {
+      id: `${course.id}-${date}-${index}`,
+      courseId: course.id,
+      courseName: teeTime.course_name || course.name,
+      time: formatTimeLabel(teeTime.time),
+      date,
+      holes: teeTime.holes,
+      options: holesOffered.map((holes) => ({ holes, price: priceFor(holes) })),
+      price: priceFor(teeTime.holes === 9 ? 9 : 18),
+      cartFee: typeof cartFee === 'number' ? cartFee : typeof teeTime.cart_fee === 'number' ? teeTime.cart_fee : undefined,
+      availableSpots: teeTime.available_spots,
+      bookingUrl: course.bookingUrl,
+      authRequired: false,
+      authType: course.authType,
+    }
+  })
 }
 
 async function getEasyTeeTimes(course: CourseConfig, date: string): Promise<TeeTime[]> {

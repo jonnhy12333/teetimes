@@ -12,10 +12,12 @@ type HoleFilter = 'any' | 9 | 18
 type TimeRange = [number, number]
 type EntryIntent = 'now' | 'tonight' | 'date'
 type Coordinates = { latitude: number; longitude: number }
+type CourseSort = 'name' | 'nearest'
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || ''
 const locationKey = 'tee-times-location'
 const courseRailKey = 'tee-times-course-rail-collapsed'
+const courseFilterKey = 'tee-times-course-filters'
 const dateValue = (date: Date) => date.toISOString().slice(0, 10)
 const playerFilters: PlayerFilter[] = ['any', 2, 3, 4]
 const holeFilters: HoleFilter[] = ['any', 9, 18]
@@ -218,6 +220,15 @@ export default function Dashboard() {
   const [refreshFailed, setRefreshFailed] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
   const [coursePickerOpen, setCoursePickerOpen] = createSignal(false)
+  const savedCourseFilters = (() => {
+    try { return JSON.parse(localStorage.getItem(courseFilterKey) || '{}') as { selected?: string[] | null; distance?: number | 'any'; sort?: CourseSort } } catch { return {} }
+  })()
+  const [courseFilterOpen, setCourseFilterOpen] = createSignal(false)
+  const [courseFilterQuery, setCourseFilterQuery] = createSignal('')
+  const [selectedCourseIds, setSelectedCourseIds] = createSignal<string[] | null>(savedCourseFilters.selected ?? null)
+  const [courseDistance, setCourseDistance] = createSignal<number | 'any'>(savedCourseFilters.distance ?? 'any')
+  const [courseSort, setCourseSort] = createSignal<CourseSort>(savedCourseFilters.sort ?? 'name')
+  const [locationError, setLocationError] = createSignal('')
   const [infoCourse, setInfoCourse] = createSignal<Course | null>(null)
   const [choosingDate, setChoosingDate] = createSignal(false)
   const [entryIntent, setEntryIntent] = createSignal<EntryIntent>('now')
@@ -351,6 +362,7 @@ export default function Dashboard() {
 
   createEffect(() => { document.documentElement.dataset.theme = theme(); localStorage.setItem('theme', theme()) })
   createEffect(() => { localStorage.setItem(courseRailKey, String(courseRailCollapsed())) })
+  createEffect(() => { localStorage.setItem(courseFilterKey, JSON.stringify({ selected: selectedCourseIds(), distance: courseDistance(), sort: courseSort() })) })
   createEffect(() => {
     if (!infoCourse()) return
     const previousOverflow = document.body.style.overflow
@@ -403,9 +415,29 @@ export default function Dashboard() {
   const distanceFor = (course: Course) => location() ? distanceInMiles(location()!, course) : undefined
   const selectedCourse = createMemo(() => courses().find((course) => course.id === selectedEntryCourse()))
   const coursesByName = createMemo(() => [...courses()].sort((a, b) => a.name.localeCompare(b.name)))
-  const resultCourses = createMemo(() => {
-    return courses().filter((course) => searchedCourseIds().includes(course.id)).sort((a, b) => a.name.localeCompare(b.name))
+  const filterableCourses = createMemo(() => {
+    const query = courseFilterQuery().trim().toLowerCase()
+    return coursesByName().filter((course) => !query || `${course.name} ${course.city} ${course.state}`.toLowerCase().includes(query))
   })
+  const resultCourses = createMemo(() => {
+    const selected = selectedCourseIds()
+    const maximumDistance = courseDistance()
+    const singleCourseSearch = Boolean(selectedEntryCourse())
+    const filtered = courses().filter((course) => {
+      if (!searchedCourseIds().includes(course.id)) return false
+      if (!singleCourseSearch && selected !== null && !selected.includes(course.id)) return false
+      if (!singleCourseSearch && maximumDistance !== 'any') {
+        const distance = distanceFor(course)
+        if (distance === undefined || distance > maximumDistance) return false
+      }
+      return true
+    })
+    return filtered.sort((a, b) => !singleCourseSearch && courseSort() === 'nearest'
+      ? (distanceFor(a) ?? Number.MAX_SAFE_INTEGER) - (distanceFor(b) ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name)
+      : a.name.localeCompare(b.name))
+  })
+  const visibleCourseCount = createMemo(() => resultCourses().length)
+  const totalSearchedCourseCount = createMemo(() => courses().filter((course) => searchedCourseIds().includes(course.id)).length)
 
   createEffect(() => {
     const selectedDay = day()
@@ -421,6 +453,30 @@ export default function Dashboard() {
 
   function readSavedLocation() {
     try { const saved = JSON.parse(localStorage.getItem(locationKey) || '') as Coordinates; if (Number.isFinite(saved.latitude) && Number.isFinite(saved.longitude)) setLocation(saved) } catch { /* No saved location. */ }
+  }
+  function requestLocation() {
+    if (location()) return Promise.resolve(location())
+    if (!navigator.geolocation) { setLocationError('Location is not available in this browser.'); return Promise.resolve(null) }
+    setLocationError('')
+    return new Promise<Coordinates | null>((resolve) => navigator.geolocation.getCurrentPosition((position) => {
+      const coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude }
+      setLocation(coordinates)
+      localStorage.setItem(locationKey, JSON.stringify(coordinates))
+      resolve(coordinates)
+    }, () => { setLocationError('Allow location access to sort or filter by distance.'); resolve(null) }, { enableHighAccuracy: false, maximumAge: 15 * 60_000, timeout: 10_000 }))
+  }
+  async function chooseCourseDistance(value: number | 'any') {
+    if (value !== 'any' && !await requestLocation()) return
+    setCourseDistance(value)
+  }
+  async function chooseCourseSort(value: CourseSort) {
+    if (value === 'nearest' && !await requestLocation()) return
+    setCourseSort(value)
+  }
+  function toggleCourse(courseId: string) {
+    const selected = selectedCourseIds()
+    if (selected === null) setSelectedCourseIds(courses().map((course) => course.id).filter((id) => id !== courseId))
+    else setSelectedCourseIds(selected.includes(courseId) ? selected.filter((id) => id !== courseId) : [...selected, courseId])
   }
   async function loadCourseCatalog() {
     if (courses().length) return courses()
@@ -498,8 +554,8 @@ export default function Dashboard() {
   onMount(() => {
     if (searchActivated()) void loadSearch(day())
     else void loadCourseCatalog().catch(() => setError('Could not load the course list.'))
-    const closeOnOutsideClick = (event: PointerEvent) => { const target = event.target as Element; if (!target.closest('[data-course-picker]')) setCoursePickerOpen(false) }
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setCoursePickerOpen(false); setInfoCourse(null); setSelectedTeeTime(null); setTimelineFullscreen(false) } }
+    const closeOnOutsideClick = (event: PointerEvent) => { const target = event.target as Element; if (!target.closest('[data-course-picker]')) setCoursePickerOpen(false); if (!target.closest('[data-course-filter]')) setCourseFilterOpen(false) }
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setCoursePickerOpen(false); setCourseFilterOpen(false); setInfoCourse(null); setSelectedTeeTime(null); setTimelineFullscreen(false) } }
     const restoreFromUrl = () => {
       const restored = initialSearchState()
       const wasActive = searchActivated()
@@ -570,8 +626,8 @@ export default function Dashboard() {
     <header class="results-header"><button type="button" class="new-search-btn" onClick={startNewSearch} aria-label="Start a new search" title="New search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg></button><div class="board-date-nav"><button type="button" class="date-arrow" disabled={day() === dateValue(new Date())} onClick={() => stepDay(-1)} aria-label="Previous day">‹</button><CalendarPicker value={day()} label={dayLabel()} onChange={changeDay} /><button type="button" class="date-arrow" onClick={() => stepDay(1)} aria-label="Next day">›</button></div><ThemeSwitch /></header>
     <section class="search-results" aria-busy={loading()}>
       <div class="timeline-toolbar" aria-label="Timeline controls">
-        <div class="timeline-refiners"><fieldset class="compact-filter"><legend>Players</legend><div>{(['any', 2, 3, 4] as const).map((value) => <button type="button" classList={{ active: players() === value }} aria-pressed={players() === value} onClick={() => setPlayers(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><fieldset class="compact-filter"><legend>Holes</legend><div>{(['any', 9, 18] as const).map((value) => <button type="button" classList={{ active: holes() === value }} aria-pressed={holes() === value} onClick={() => setHoles(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset></div>
-        <div class="results-tools"><TimelineZoomControls /><span class="refresh-status" classList={{ failed: refreshFailed() }}>{updateLabel()}</span><button type="button" class="refresh-btn" disabled={loading() || refreshing()} onClick={() => void loadSearch(day(), { background: true, bypassCache: true })} aria-label="Refresh tee times" title="Refresh tee times"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5M6.1 9a7 7 0 0 1 11.4-2.5L20 9M4 15l2.5 2.5A7 7 0 0 0 17.9 15" /></svg></button></div>
+        <div class="timeline-refiners"><fieldset class="compact-filter"><legend>Players</legend><div>{(['any', 2, 3, 4] as const).map((value) => <button type="button" classList={{ active: players() === value }} aria-pressed={players() === value} onClick={() => setPlayers(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><fieldset class="compact-filter"><legend>Holes</legend><div>{(['any', 9, 18] as const).map((value) => <button type="button" classList={{ active: holes() === value }} aria-pressed={holes() === value} onClick={() => setHoles(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><Show when={!selectedEntryCourse()}><div class="course-filter-wrap" data-course-filter><span class="course-filter-label">Courses</span><button type="button" class="course-filter-trigger" classList={{ active: courseDistance() !== 'any' || courseSort() !== 'name' || selectedCourseIds() !== null }} aria-expanded={courseFilterOpen()} onClick={() => setCourseFilterOpen(!courseFilterOpen())}>{visibleCourseCount()} of {totalSearchedCourseCount()}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5" /></svg></button><Show when={courseFilterOpen()}><section class="course-filter-panel" aria-label="Filter courses"><header><strong>Courses</strong><button type="button" onClick={() => setCourseFilterOpen(false)} aria-label="Close course filters">×</button></header><div class="course-filter-options"><label>Sort by<select value={courseSort()} onChange={(event) => void chooseCourseSort(event.currentTarget.value as CourseSort)}><option value="name">Course name</option><option value="nearest">Nearest</option></select></label><label>Distance<select value={courseDistance()} onChange={(event) => void chooseCourseDistance(event.currentTarget.value === 'any' ? 'any' : Number(event.currentTarget.value))}><option value="any">Any distance</option><option value="5">Within 5 miles</option><option value="10">Within 10 miles</option><option value="15">Within 15 miles</option><option value="25">Within 25 miles</option></select></label></div><Show when={locationError()}><p class="course-filter-error">{locationError()}</p></Show><input class="course-filter-search" type="search" value={courseFilterQuery()} onInput={(event) => setCourseFilterQuery(event.currentTarget.value)} placeholder="Find a course or town" aria-label="Find a course or town" /><div class="course-filter-actions"><button type="button" onClick={() => setSelectedCourseIds(null)}>Select all</button><button type="button" onClick={() => setSelectedCourseIds([])}>Clear all</button><button type="button" onClick={() => { setSelectedCourseIds(null); setCourseDistance('any'); setCourseSort('name'); setLocationError('') }}>Reset</button></div><div class="course-filter-list"><For each={filterableCourses()}>{(course) => <label><input type="checkbox" checked={selectedCourseIds() === null || selectedCourseIds()!.includes(course.id)} onChange={() => toggleCourse(course.id)} /><span class="course-avatar compact"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></span><span><strong>{course.name}</strong><small>{course.city}, {course.state}<Show when={distanceFor(course) !== undefined}> · {distanceFor(course)!.toFixed(1)} mi</Show></small></span></label>}</For></div></section></Show></div></Show></div>
+        <div class="results-tools"><TimelineZoomControls /><span class="refresh-status" classList={{ failed: refreshFailed() }}>{updateLabel()}</span></div>
       </div>
       <Show when={error()}>{(message) => <div class="empty-state standalone">{message()}</div>}</Show>
       <div class="timeline-board" classList={{ 'timeline-fullscreen': timelineFullscreen() }}>
