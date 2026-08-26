@@ -262,6 +262,7 @@ export const courses: CourseConfig[] = [
     latitude: 42.888,
     longitude: -71.314,
     logoUrl: '/course-logos/hoodkroft.png',
+    headerImageUrl: '/course-headers/hoodkroft.jpg',
     details: {
       type: 'Public', holes: 9, par: 36, yardageMin: 2588, yardageMax: 3248,
       address: '121 East Broadway, Derry, NH 03038', phone: '(603) 434-0651',
@@ -287,6 +288,7 @@ export const courses: CourseConfig[] = [
     latitude: 42.88058,
     longitude: -71.44939,
     logoUrl: '/course-logos/hidden-creek.png',
+    headerImageUrl: '/course-headers/hidden-creek.jpg',
     details: {
       type: 'Public', holes: 9, par: 36,
       address: '17 Morgan Road, Litchfield, NH 03052', phone: '(603) 262-9272',
@@ -362,6 +364,7 @@ export const courses: CourseConfig[] = [
     latitude: 42.7186155,
     longitude: -71.542304,
     logoUrl: '/course-logos/overlook.png',
+    headerImageUrl: '/course-headers/overlook.jpg',
     details: {
       type: 'Public', holes: 18, par: 71, yardageMin: 5029, yardageMax: 6329,
       address: '5 Overlook Drive, Hollis, NH 03049', phone: '(603) 465-2909',
@@ -410,6 +413,7 @@ export const courses: CourseConfig[] = [
     latitude: 42.6951924,
     longitude: -71.2354778,
     logoUrl: '/course-logos/hickory-hill.png',
+    headerImageUrl: '/course-headers/hickory-hill.jpg',
     details: {
       type: 'Public', holes: 18, par: 71, yardageMin: 5081, yardageMax: 6287,
       address: '200 North Lowell Street, Methuen, MA 01844', phone: '(978) 686-0822',
@@ -493,6 +497,7 @@ export const courses: CourseConfig[] = [
     latitude: 42.8285037,
     longitude: -71.6040041,
     logoUrl: '/course-logos/amherst.png',
+    headerImageUrl: '/course-headers/amherst.jpg',
     details: {
       type: 'Public', holes: 18, par: 72, yardageMin: 4456, yardageMax: 6216,
       address: '72 Ponemah Road, Amherst, NH 03031', phone: '(603) 673-9908',

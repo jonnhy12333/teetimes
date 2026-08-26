@@ -1,6 +1,8 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { courses, getCourseById, getTeeTimesForCourse } from './courses.js'
 
 dotenv.config()
@@ -10,6 +12,32 @@ const port = process.env.PORT || 5000
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
 const weatherCache = new Map<string, { expiresAt: number; hourly: unknown[] }>()
 const weatherCacheDurationMs = 10 * 60 * 1000
+const developmentTeeTimeCacheEnabled = process.env.DEV_TEE_TIME_CACHE === 'true' || (process.env.DEV_TEE_TIME_CACHE !== 'false' && process.env.npm_lifecycle_event === 'dev')
+const developmentTeeTimeCacheDurationMs = Number(process.env.DEV_TEE_TIME_CACHE_TTL_MS) || 60 * 60 * 1000
+const developmentTeeTimeCacheDirectory = resolve(process.cwd(), '.dev-cache', 'tee-times')
+const developmentTeeTimeCachePath = (courseId: string, date: string) => resolve(developmentTeeTimeCacheDirectory, `${courseId}-${date}`.replace(/[^a-zA-Z0-9._-]/g, '_') + '.json')
+
+async function readDevelopmentTeeTimeCache(courseId: string, date: string) {
+  if (!developmentTeeTimeCacheEnabled) return undefined
+  try {
+    const cachePath = developmentTeeTimeCachePath(courseId, date)
+    const cached = JSON.parse(await readFile(cachePath, 'utf8')) as { createdAt?: number; data?: unknown[] }
+    if (typeof cached.createdAt !== 'number' || !Array.isArray(cached.data) || Date.now() - cached.createdAt > developmentTeeTimeCacheDurationMs) return undefined
+    return cached.data
+  } catch {
+    return undefined
+  }
+}
+
+async function writeDevelopmentTeeTimeCache(courseId: string, date: string, data: unknown[]) {
+  if (!developmentTeeTimeCacheEnabled) return
+  try {
+    await mkdir(developmentTeeTimeCacheDirectory, { recursive: true })
+    await writeFile(developmentTeeTimeCachePath(courseId, date), JSON.stringify({ createdAt: Date.now(), data }), 'utf8')
+  } catch (error) {
+    console.warn('Could not write development tee-time cache', error)
+  }
+}
 
 app.set('trust proxy', 1)
 
@@ -46,7 +74,19 @@ app.get('/api/courses/:id/tee-times', async (req, res) => {
       return
     }
 
-    res.json(await getTeeTimesForCourse(course, String(date || new Date().toISOString().slice(0, 10))))
+    const requestedDate = String(date || new Date().toISOString().slice(0, 10))
+    const bypassCache = req.query.refresh === '1'
+    const cachedTeeTimes = bypassCache ? undefined : await readDevelopmentTeeTimeCache(course.id, requestedDate)
+    if (cachedTeeTimes) {
+      res.set('X-Dev-Tee-Time-Cache', 'HIT')
+      res.json(cachedTeeTimes)
+      return
+    }
+
+    const teeTimes = await getTeeTimesForCourse(course, requestedDate)
+    await writeDevelopmentTeeTimeCache(course.id, requestedDate, teeTimes)
+    if (developmentTeeTimeCacheEnabled) res.set('X-Dev-Tee-Time-Cache', bypassCache ? 'BYPASS' : 'MISS')
+    res.json(teeTimes)
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch tee times' })
   }
