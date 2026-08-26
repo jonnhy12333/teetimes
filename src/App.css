@@ -1340,8 +1340,9 @@ a.weather-chip:focus-visible {
 .timeline-scroll::-webkit-scrollbar { width: 9px; }
 .timeline-scroll::-webkit-scrollbar-track { background: var(--panel-muted); }
 .timeline-scroll::-webkit-scrollbar-thumb { background: var(--border); border: 2px solid var(--panel-muted); border-radius: 999px; }
-.timeline-floating-controls { position: absolute; right: 58px; top: 2px; z-index: 40; }
-.timeline-board-fullscreen { align-items: center; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--border); border-radius: 999px; color: var(--accent-dark); cursor: pointer; display: flex; height: 36px; justify-content: center; position: absolute; right: 10px; top: 3px; width: 36px; z-index: 45; }
+.timeline-floating-controls { align-items: center; bottom: 14px; display: flex; gap: 8px; position: absolute; right: 14px; z-index: 45; }
+.timeline-floating-controls .timeline-zoom-controls { box-shadow: 0 3px 12px var(--shadow); }
+.timeline-board-fullscreen { align-items: center; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--border); border-radius: 999px; box-shadow: 0 3px 12px var(--shadow); color: var(--accent-dark); cursor: pointer; display: flex; flex: 0 0 auto; height: 38px; justify-content: center; width: 38px; }
 .timeline-board-fullscreen:hover, .timeline-board-fullscreen:focus-visible { background: var(--panel-muted); border-color: var(--accent); outline: none; }
 .timeline-board-fullscreen svg { fill: none; height: 17px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; width: 17px; }
 .timeline-fullscreen { border: 0; border-radius: 0; bottom: 0; box-shadow: none; left: 0; min-height: 0; position: fixed; right: 0; top: 0; z-index: 190; }
@@ -1546,8 +1547,8 @@ a.weather-chip:focus-visible {
   .course-filter-list { max-height: 48dvh; }
   .compact-filter button { min-width: 31px; padding-inline: 7px; }
   .timeline-toolbar .results-tools { flex: 0 0 auto; justify-content: flex-end; min-width: 0; width: auto; }
-  .timeline-toolbar .timeline-zoom-controls { display: none; }
-  .timeline-fullscreen .timeline-floating-controls { display: block; }
+  .timeline-floating-controls .timeline-zoom-controls { display: none; }
+  .timeline-fullscreen .timeline-floating-controls .timeline-zoom-controls { display: inline-flex; }
   .result-filters { grid-template-columns: 1fr 1fr; }
   .result-time { grid-column: 1 / -1; }
   .timeline-course-header { gap: 7px; padding: 6px; }
