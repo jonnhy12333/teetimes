@@ -544,7 +544,7 @@ export default function Dashboard() {
     setError(null)
   }
   function searchPlayNow() { const today = dateValue(new Date()); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange(automaticTimeRange(today)); setDay(today); void loadSearch(today) }
-  function searchTonight() { const today = dateValue(new Date()); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange(automaticTimeRange(today)); setDay(today); void loadSearch(today) }
+  function searchTonight() { const today = dateValue(new Date()); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange([Math.max(16 * 60, automaticTimeRange(today)[0]), timeMaximum]); setDay(today); void loadSearch(today) }
   function submitEntrySearch() {
     if (entryIntent() === 'now') searchPlayNow()
     else if (entryIntent() === 'tonight' && !combineImmediateChoices) searchTonight()
@@ -608,7 +608,7 @@ export default function Dashboard() {
       <section class="entry-screen">
         <div class="entry-copy"><p class="eyebrow">TEE TIMES NEAR YOU</p><h1>What kind of round are you looking for?</h1><p>Choose your search, optionally narrow it to one course, then find tee times.</p></div>
         <div class="entry-choices" role="radiogroup" aria-label="When do you want to play?">
-          <button type="button" role="radio" aria-checked={entryIntent() === 'now'} classList={{ active: entryIntent() === 'now' }} onClick={() => { setEntryIntent('now'); setChoosingDate(false) }}><strong>Play now</strong><span>Today · next 3 hours</span></button>
+          <button type="button" role="radio" aria-checked={entryIntent() === 'now'} classList={{ active: entryIntent() === 'now' }} onClick={() => { setEntryIntent('now'); setChoosingDate(false) }}><strong>Play now</strong><span>Today · from now</span></button>
           <Show when={!combineImmediateChoices}><button type="button" role="radio" aria-checked={entryIntent() === 'tonight'} classList={{ active: entryIntent() === 'tonight' }} onClick={() => { setEntryIntent('tonight'); setChoosingDate(false) }}><strong>Play tonight</strong><span>Today · after 4 PM</span></button></Show>
           <button type="button" role="radio" aria-checked={entryIntent() === 'date'} classList={{ active: entryIntent() === 'date' }} onClick={() => { setEntryIntent('date'); setChoosingDate(true) }}><strong>Choose a date</strong><span>Open the calendar</span></button>
         </div>
