@@ -1287,8 +1287,24 @@ a.weather-chip:focus-visible {
 .results-tools { align-items: center; display: flex; gap: 9px; justify-content: flex-end; }
 .refresh-status { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .refresh-status.failed { color: var(--danger); }
+.results-view-switch { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; display: flex; height: 32px; overflow: hidden; }
+.results-view-switch button { background: transparent; border: 0; border-left: 1px solid var(--divider); color: var(--muted); cursor: pointer; font: inherit; font-size: 11px; font-weight: 750; padding: 0 11px; }
+.results-view-switch button:first-child { border-left: 0; }
+.results-view-switch button:hover { background: var(--panel-muted); }
+.results-view-switch button.active { background: var(--accent); color: var(--accent-contrast); }
+.results-view-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .timeline-toolbar { align-items: end; display: flex; gap: 14px; justify-content: space-between; margin-bottom: 8px; }
 .timeline-refiners { align-items: end; display: flex; gap: 10px; }
+.timeline-toolbar.map-view .course-filter-wrap { display: none; }
+.timeline-toolbar.map-view .timeline-refiners { order: 1; }
+.timeline-toolbar.map-view .map-time-filter { order: 2; }
+.timeline-toolbar.map-view .results-tools { order: 3; }
+.map-time-filter { flex: 1; max-width: 390px; min-width: 240px; }
+.map-time-filter .time-range-heading { margin-bottom: 3px; }
+.map-time-filter .time-range-heading [data-part='label'] { font-size: 9px; }
+.map-time-filter .time-range-heading strong { font-size: 11px; }
+.map-time-filter .time-range-control { height: 18px; }
+.map-time-filter .time-range-thumb { height: 18px; width: 18px; }
 .compact-filter { border: 0; margin: 0; padding: 0; }
 .compact-filter legend { color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .06em; margin-bottom: 3px; text-transform: uppercase; }
 .compact-filter > div { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; display: flex; height: 32px; overflow: hidden; }
@@ -1347,6 +1363,28 @@ a.weather-chip:focus-visible {
 .timeline-board-fullscreen svg { fill: none; height: 17px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; width: 17px; }
 .timeline-fullscreen { border: 0; border-radius: 0; bottom: 0; box-shadow: none; left: 0; min-height: 0; position: fixed; right: 0; top: 0; z-index: 190; }
 .timeline-fullscreen .timeline-scroll { height: 100dvh; }
+.course-map-board { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 3px 12px var(--shadow); flex: 1; min-height: 480px; overflow: hidden; position: relative; }
+.course-map-loading { align-items: center; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; color: var(--muted); display: flex; flex: 1; gap: 8px; justify-content: center; min-height: 480px; }
+.course-map-canvas { height: 100%; min-height: 480px; width: 100%; }
+.course-map-panel { background: color-mix(in srgb, var(--panel) 97%, transparent); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 36px rgb(0 0 0 / 22%); display: flex; flex-direction: column; max-height: calc(100% - 28px); overflow: hidden; position: absolute; right: 14px; top: 14px; width: min(370px, calc(100% - 28px)); z-index: 5; }
+.course-map-panel > header { align-items: center; border-bottom: 1px solid var(--divider); display: flex; gap: 10px; min-height: 78px; padding: 12px; }
+.course-map-panel > header.has-image { background-position: center; background-size: cover; color: #fff; min-height: 120px; padding-top: 50px; }
+.course-map-panel > header.has-image p { color: rgb(255 255 255 / 82%); }
+.course-map-panel > header.has-image .course-name-button { color: #fff; }
+.course-map-panel > header > div { flex: 1; min-width: 0; }
+.course-map-panel header p { color: var(--muted); font-size: 11px; margin-top: 3px; }
+.course-map-panel-close { align-items: center; align-self: flex-start; background: color-mix(in srgb, var(--panel) 84%, transparent); border: 0; border-radius: 999px; color: var(--muted); cursor: pointer; display: flex; font-size: 22px; height: 32px; justify-content: center; width: 32px; }
+.course-map-panel-body { min-height: 0; overflow-y: auto; padding: 13px; }
+.course-map-panel-body > strong { display: block; font-size: 12px; margin-bottom: 9px; }
+.course-map-time-list { display: grid; gap: 7px; }
+.course-map-time-list button { background: var(--panel-muted); border: 1px solid var(--border); border-radius: 9px; color: var(--text); cursor: pointer; display: flex; justify-content: space-between; padding: 10px 11px; text-align: left; }
+.course-map-time-list button:hover, .course-map-time-list button:focus-visible { box-shadow: 0 2px 8px var(--shadow); outline: none; transform: translateY(-1px); }
+.course-map-time-list button.availability-best { background: color-mix(in srgb, var(--accent) 10%, var(--panel-muted)); border-color: var(--accent); }
+.course-map-time-list button.availability-low { background: color-mix(in srgb, #d97706 9%, var(--panel-muted)); border-color: #d97706; }
+.course-map-time-list button strong { color: var(--accent-dark); font-size: 13px; white-space: nowrap; }
+.course-map-time-list button span { color: var(--muted); font-size: 10px; }
+.course-map-no-times, .course-map-empty { color: var(--muted); font-size: 13px; }
+.course-map-empty { background: var(--panel); border: 1px solid var(--border); border-radius: 9px; left: 50%; padding: 10px 13px; position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 4; }
 .tee-time-detail-backdrop { align-items: flex-end; background: rgb(10 18 14 / 48%); display: flex; inset: 0; justify-content: center; position: fixed; z-index: 260; }
 .tee-time-detail-sheet { background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -10px 32px var(--shadow); max-width: 520px; overflow: hidden; width: 100%; }
 .tee-time-detail-sheet > header { align-items: center; border-bottom: 1px solid var(--divider); display: flex; gap: 11px; padding: 15px 16px; }
@@ -1541,14 +1579,19 @@ a.weather-chip:focus-visible {
   .date-search-row { margin-top: 18px; }
   .date-control .date-display { font-size: 18px; }
   .results-tools { width: auto; }
-  .timeline-toolbar { align-items: end; display: flex; gap: 7px; margin-bottom: 7px; }
-  .timeline-refiners { flex: 1; gap: 7px; width: auto; }
+  .timeline-toolbar { align-items: end; display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 7px; }
+  .timeline-refiners { flex: 1 0 100%; gap: 7px; width: auto; }
   .course-filter-panel { border: 0; border-radius: 16px 16px 0 0; bottom: 0; box-shadow: 0 -12px 38px var(--shadow); left: 0; max-height: 82dvh; padding: 16px; position: fixed; top: auto; width: 100%; z-index: 240; }
   .course-filter-list { max-height: 48dvh; }
   .compact-filter button { min-width: 31px; padding-inline: 7px; }
-  .timeline-toolbar .results-tools { flex: 0 0 auto; justify-content: flex-end; min-width: 0; width: auto; }
+  .timeline-toolbar .results-tools { flex: 1 0 100%; justify-content: flex-end; min-width: 0; width: auto; }
+  .timeline-toolbar.map-view .map-time-filter { flex: 1 0 100%; max-width: none; min-width: 0; width: 100%; }
   .timeline-floating-controls .timeline-zoom-controls { display: none; }
   .timeline-fullscreen .timeline-floating-controls .timeline-zoom-controls { display: inline-flex; }
+  .course-map-board, .course-map-canvas { min-height: 420px; }
+  .course-map-panel { border: 0; border-radius: 16px 16px 0 0; bottom: 0; left: 0; max-height: 62%; right: 0; top: auto; width: 100%; }
+  .course-map-panel > header.has-image { min-height: 100px; padding-top: 38px; }
+  .course-map-time-list button { align-items: center; }
   .result-filters { grid-template-columns: 1fr 1fr; }
   .result-time { grid-column: 1 / -1; }
   .timeline-course-header { gap: 7px; padding: 6px; }

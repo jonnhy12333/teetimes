@@ -1,11 +1,14 @@
 import { DatePicker, parseDate } from '@ark-ui/solid/date-picker'
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { Slider } from '@ark-ui/solid/slider'
+import { createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show, Suspense } from 'solid-js'
 import type { JSX } from 'solid-js'
+
+const CourseMap = lazy(() => import('./CourseMap'))
 
 interface CourseTee { name: string; yardage?: number; rating?: number; slope?: number }
 interface CourseDetails { type?: string; holes?: number; par?: number; yardageMin?: number; yardageMax?: number; address?: string; phone?: string; description?: string; walkingPolicy?: string; amenities?: string[]; tees?: CourseTee[] }
-interface Course { id: string; name: string; city: string; state: string; bookingUrl: string; websiteUrl?: string; status?: 'active' | 'unsupported'; latitude?: number; longitude?: number; logoUrl?: string; headerImageUrl?: string; details?: CourseDetails }
-interface TeeTime { id: string; courseId: string; time: string; date: string; holes: number | string; options?: Array<{ holes: 9 | 18; price?: number }>; price?: number; availableSpots?: number; bookingUrl: string }
+export interface Course { id: string; name: string; city: string; state: string; bookingUrl: string; websiteUrl?: string; status?: 'active' | 'unsupported'; latitude?: number; longitude?: number; logoUrl?: string; headerImageUrl?: string; details?: CourseDetails }
+export interface TeeTime { id: string; courseId: string; time: string; date: string; holes: number | string; options?: Array<{ holes: 9 | 18; price?: number }>; price?: number; availableSpots?: number; bookingUrl: string }
 interface SelectedTeeTime { course: Course; tee: TeeTime; price?: number; holes: number | string }
 type PlayerFilter = 'any' | 2 | 3 | 4
 type HoleFilter = 'any' | 9 | 18
@@ -13,6 +16,7 @@ type TimeRange = [number, number]
 type EntryIntent = 'now' | 'tonight' | 'date'
 type Coordinates = { latitude: number; longitude: number }
 type CourseSort = 'name' | 'nearest' | 'availability'
+type ResultsView = 'timeline' | 'map'
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || ''
 const locationKey = 'tee-times-location'
@@ -237,6 +241,7 @@ export default function Dashboard() {
   const [timelineFullscreen, setTimelineFullscreen] = createSignal(false)
   const [courseRailCollapsed, setCourseRailCollapsed] = createSignal(storedCourseRail === null ? window.matchMedia('(max-width: 700px)').matches : storedCourseRail === 'true')
   const [selectedTeeTime, setSelectedTeeTime] = createSignal<SelectedTeeTime | null>(null)
+  const [resultsView, setResultsView] = createSignal<ResultsView>('timeline')
   let loadRequest = 0
   let timelineScroller!: HTMLDivElement
   let timelineDragStartX = 0
@@ -355,9 +360,12 @@ export default function Dashboard() {
     event.preventDefault()
     event.stopPropagation()
   }
+  const showTeeTimeDetails = (course: Course, tee: TeeTime, price: number | undefined, shownHoles: number | string) => {
+    setSelectedTeeTime({ course, tee, price, holes: shownHoles })
+  }
   const openTeeTimeDetails = (event: MouseEvent, course: Course, tee: TeeTime, price: number | undefined, shownHoles: number | string) => {
     event.preventDefault()
-    setSelectedTeeTime({ course, tee, price, holes: shownHoles })
+    showTeeTimeDetails(course, tee, price, shownHoles)
   }
 
   createEffect(() => { document.documentElement.dataset.theme = theme(); localStorage.setItem('theme', theme()) })
@@ -423,20 +431,21 @@ export default function Dashboard() {
     const selected = selectedCourseIds()
     const maximumDistance = courseDistance()
     const singleCourseSearch = Boolean(selectedEntryCourse())
+    const mapView = resultsView() === 'map'
     const filtered = courses().filter((course) => {
       if (!searchedCourseIds().includes(course.id)) return false
-      if (!singleCourseSearch && selected !== null && !selected.includes(course.id)) return false
-      if (!singleCourseSearch && maximumDistance !== 'any') {
+      if (!singleCourseSearch && !mapView && selected !== null && !selected.includes(course.id)) return false
+      if (!singleCourseSearch && !mapView && maximumDistance !== 'any') {
         const distance = distanceFor(course)
         if (distance === undefined || distance > maximumDistance) return false
       }
       return true
     })
     return filtered.sort((a, b) => {
-      if (!singleCourseSearch && courseSort() === 'nearest') {
+      if (!singleCourseSearch && !mapView && courseSort() === 'nearest') {
         return (distanceFor(a) ?? Number.MAX_SAFE_INTEGER) - (distanceFor(b) ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name)
       }
-      if (!singleCourseSearch && courseSort() === 'availability') {
+      if (!singleCourseSearch && !mapView && courseSort() === 'availability') {
         return timesFor(b.id).length - timesFor(a.id).length || a.name.localeCompare(b.name)
       }
       return a.name.localeCompare(b.name)
@@ -444,6 +453,7 @@ export default function Dashboard() {
   })
   const visibleCourseCount = createMemo(() => resultCourses().length)
   const totalSearchedCourseCount = createMemo(() => courses().filter((course) => searchedCourseIds().includes(course.id)).length)
+  const mapTimesByCourse = createMemo(() => Object.fromEntries(resultCourses().map((course) => [course.id, timesFor(course.id)])))
 
   createEffect(() => {
     const selectedDay = day()
@@ -607,6 +617,11 @@ export default function Dashboard() {
     return minutes < 1 ? 'Updated just now' : `Updated ${minutes} min ago`
   }
   const TimelineZoomControls = () => <div class="timeline-zoom-controls" aria-label="Timeline zoom controls"><button type="button" onClick={() => applyTimelineZoom(timelineScale() / 1.25)} aria-label="Zoom out" title="Zoom out">−</button><input class="timeline-zoom-slider" type="range" min={timelineMinScale} max={timelineMaxScale} step="0.1" value={timelineScale()} onInput={(event) => applyTimelineZoom(Number(event.currentTarget.value))} aria-label="Timeline zoom level" /><button type="button" onClick={() => applyTimelineZoom(timelineScale() * 1.25)} aria-label="Zoom in" title="Zoom in">+</button><button type="button" class="timeline-reset-button" onClick={() => applyTimelineZoom(timelineDefaultScale)} title="Reset zoom">Reset</button></div>
+  const mapRangeMinimum = () => day() === dateValue(new Date()) ? Math.min(Math.max(timeMinimum, Math.floor(currentMinutes() / 15) * 15), timeMaximum - 15) : timeMinimum
+  const MapTimeRange = () => <Slider.Root class="time-range-picker map-time-filter" min={mapRangeMinimum()} max={timeMaximum} step={15} minStepsBetweenThumbs={1} value={timeRange()} onValueChange={(details) => setTimeRange([details.value[0], details.value[1]])}>
+    <div class="time-range-heading"><Slider.Label>Time</Slider.Label><strong>{formatMinutes(timeRange()[0])} – {formatMinutes(timeRange()[1])}</strong></div>
+    <Slider.Control class="time-range-control"><Slider.Track class="time-range-track"><Slider.Range class="time-range-fill" /></Slider.Track><Slider.Thumb class="time-range-thumb" index={0}><Slider.HiddenInput /></Slider.Thumb><Slider.Thumb class="time-range-thumb" index={1}><Slider.HiddenInput /></Slider.Thumb></Slider.Control>
+  </Slider.Root>
 
   return <div class="container"><main class="dashboard search-dashboard">
     <Show when={searchActivated()} fallback={<>
@@ -631,12 +646,13 @@ export default function Dashboard() {
     </>}>
     <header class="results-header"><button type="button" class="new-search-btn" onClick={startNewSearch} aria-label="Start a new search" title="New search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg></button><div class="board-date-nav"><button type="button" class="date-arrow" disabled={day() === dateValue(new Date())} onClick={() => stepDay(-1)} aria-label="Previous day">‹</button><CalendarPicker value={day()} label={dayLabel()} onChange={changeDay} /><button type="button" class="date-arrow" onClick={() => stepDay(1)} aria-label="Next day">›</button></div><ThemeSwitch /></header>
     <section class="search-results" aria-busy={loading()}>
-      <div class="timeline-toolbar" aria-label="Timeline controls">
+      <div class="timeline-toolbar" classList={{ 'map-view': resultsView() === 'map' }} aria-label="Results controls">
+        <Show when={resultsView() === 'map'}><MapTimeRange /></Show>
         <div class="timeline-refiners"><fieldset class="compact-filter"><legend>Players</legend><div>{(['any', 2, 3, 4] as const).map((value) => <button type="button" classList={{ active: players() === value }} aria-pressed={players() === value} onClick={() => setPlayers(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><fieldset class="compact-filter"><legend>Holes</legend><div>{(['any', 9, 18] as const).map((value) => <button type="button" classList={{ active: holes() === value }} aria-pressed={holes() === value} onClick={() => setHoles(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><Show when={!selectedEntryCourse()}><div class="course-filter-wrap" data-course-filter><span class="course-filter-label">Courses</span><button type="button" class="course-filter-trigger" classList={{ active: courseDistance() !== 'any' || courseSort() !== 'name' || selectedCourseIds() !== null }} aria-expanded={courseFilterOpen()} onClick={() => setCourseFilterOpen(!courseFilterOpen())}>{visibleCourseCount()} of {totalSearchedCourseCount()}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5" /></svg></button><Show when={courseFilterOpen()}><section class="course-filter-panel" aria-label="Filter courses"><header><strong>Courses</strong><button type="button" onClick={() => setCourseFilterOpen(false)} aria-label="Close course filters">×</button></header><div class="course-filter-options"><label>Sort by<select value={courseSort()} onChange={(event) => void chooseCourseSort(event.currentTarget.value as CourseSort)}><option value="name">Course name</option><option value="availability">Most tee times</option><option value="nearest">Nearest</option></select></label><label>Distance<select value={courseDistance()} onChange={(event) => void chooseCourseDistance(event.currentTarget.value === 'any' ? 'any' : Number(event.currentTarget.value))}><option value="any">Any distance</option><option value="5">Within 5 miles</option><option value="10">Within 10 miles</option><option value="15">Within 15 miles</option><option value="25">Within 25 miles</option></select></label></div><Show when={locationError()}><p class="course-filter-error">{locationError()}</p></Show><input class="course-filter-search" type="search" value={courseFilterQuery()} onInput={(event) => setCourseFilterQuery(event.currentTarget.value)} placeholder="Find a course or town" aria-label="Find a course or town" /><div class="course-filter-actions"><button type="button" onClick={() => setSelectedCourseIds(null)}>Select all</button><button type="button" onClick={() => setSelectedCourseIds([])}>Clear all</button><button type="button" onClick={() => { setSelectedCourseIds(null); setCourseDistance('any'); setCourseSort('name'); setLocationError('') }}>Reset</button></div><div class="course-filter-list"><For each={filterableCourses()}>{(course) => <label><input type="checkbox" checked={selectedCourseIds() === null || selectedCourseIds()!.includes(course.id)} onChange={() => toggleCourse(course.id)} /><span class="course-avatar compact"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></span><span><strong>{course.name}</strong><small>{course.city}, {course.state}<Show when={distanceFor(course) !== undefined}> · {distanceFor(course)!.toFixed(1)} mi</Show></small></span></label>}</For></div></section></Show></div></Show></div>
-        <div class="results-tools"><span class="refresh-status" classList={{ failed: refreshFailed() }}>{updateLabel()}</span></div>
+        <div class="results-tools"><div class="results-view-switch" role="group" aria-label="Results view"><button type="button" classList={{ active: resultsView() === 'timeline' }} aria-pressed={resultsView() === 'timeline'} onClick={() => setResultsView('timeline')}>Timeline</button><button type="button" classList={{ active: resultsView() === 'map' }} aria-pressed={resultsView() === 'map'} onClick={() => setResultsView('map')}>Map</button></div><span class="refresh-status" classList={{ failed: refreshFailed() }}>{updateLabel()}</span></div>
       </div>
       <Show when={error()}>{(message) => <div class="empty-state standalone">{message()}</div>}</Show>
-      <div class="timeline-board" classList={{ 'timeline-fullscreen': timelineFullscreen() }}>
+      <Show when={resultsView() === 'timeline'} fallback={<Suspense fallback={<div class="course-map-loading"><span class="loading-spinner" />Loading map…</div>}><CourseMap courses={resultCourses()} timesByCourse={mapTimesByCourse()} selectedHoles={holes()} loadingCourseIds={loadingCourseIds()} failedCourseIds={failedCourseIds()} userLocation={location()} onSelectCourse={setInfoCourse} onSelectTeeTime={showTeeTimeDetails} /></Suspense>}><div class="timeline-board" classList={{ 'timeline-fullscreen': timelineFullscreen() }}>
         <div class="timeline-floating-controls"><TimelineZoomControls /><button type="button" class="timeline-board-fullscreen" onClick={() => setTimelineFullscreen(!timelineFullscreen())} aria-label={timelineFullscreen() ? 'Exit fullscreen timeline' : 'Open fullscreen timeline'} title={timelineFullscreen() ? 'Exit fullscreen' : 'Fullscreen timeline'}><svg viewBox="0 0 24 24" aria-hidden="true"><Show when={timelineFullscreen()} fallback={<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />}><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5" /></Show></svg></button></div>
         <div class="timeline-scroll" classList={{ 'course-rail-collapsed': courseRailCollapsed(), 'zoom-overview': timelineZoomMode() === 'overview', 'zoom-compact': timelineZoomMode() === 'compact', 'zoom-standard': timelineZoomMode() === 'standard', 'zoom-detailed': timelineZoomMode() === 'detailed' }} ref={timelineScroller} onPointerDown={beginTimelineDrag} onPointerMove={moveTimelineDrag} onPointerUp={endTimelineDrag} onPointerCancel={endTimelineDrag} onWheel={handleTimelineWheel} onClickCapture={handleTimelineClick}>
           <div class="timeline-canvas">
@@ -677,7 +693,7 @@ export default function Dashboard() {
             }}</For>
           </div>
         </div>
-      </div>
+      </div></Show>
       <Show when={!loading() && !error() && resultCourses().length === 0}><div class="no-results"><h3>No courses were available to search.</h3></div></Show>
     </section>
     </Show>
