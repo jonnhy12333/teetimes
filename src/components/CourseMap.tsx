@@ -71,6 +71,7 @@ export default function CourseMap(props: CourseMapProps) {
   const [mapError, setMapError] = createSignal('')
   const [mapsLibrary, setMapsLibrary] = createSignal<google.maps.MapsLibrary | null>(null)
   const [selectedCourseId, setSelectedCourseId] = createSignal<string | null>(null)
+  const [mapFullscreen, setMapFullscreen] = createSignal(false)
   let container!: HTMLDivElement
   let map: google.maps.Map | undefined
   let mapClickListener: google.maps.MapsEventListener | undefined
@@ -87,6 +88,8 @@ export default function CourseMap(props: CourseMapProps) {
 
   onMount(() => {
     let disposed = false
+    const closeFullscreen = (event: KeyboardEvent) => { if (event.key === 'Escape') setMapFullscreen(false) }
+    document.addEventListener('keydown', closeFullscreen)
     void loadMapsLibrary().then((library) => {
       if (disposed) return
       setMapsLibrary(library)
@@ -100,6 +103,7 @@ export default function CourseMap(props: CourseMapProps) {
       mapClickListener?.remove()
       mapClickListener = undefined
       map = undefined
+      document.removeEventListener('keydown', closeFullscreen)
     })
   })
 
@@ -115,8 +119,7 @@ export default function CourseMap(props: CourseMapProps) {
         styles: mapStyles(theme),
         mapTypeControl: false,
         streetViewControl: false,
-        fullscreenControl: true,
-        fullscreenControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
+        fullscreenControl: false,
         clickableIcons: false,
         gestureHandling: 'greedy'
       })
@@ -124,7 +127,18 @@ export default function CourseMap(props: CourseMapProps) {
       setMapReady(true)
       return
     }
-    map.setOptions({ styles: mapStyles(theme) })
+    map.setOptions({ styles: mapStyles(theme), fullscreenControl: false })
+  })
+
+  createEffect(() => {
+    mapFullscreen()
+    if (!mapReady() || !map) return
+    const center = map.getCenter()
+    requestAnimationFrame(() => {
+      if (!map) return
+      google.maps.event.trigger(map, 'resize')
+      if (center) map.setCenter(center)
+    })
   })
 
   createEffect(() => {
@@ -208,8 +222,9 @@ export default function CourseMap(props: CourseMapProps) {
   const shownOption = (tee: TeeTime) => props.selectedHoles === 'any' ? undefined : tee.options?.find((option) => option.holes === props.selectedHoles)
   const shownHoles = (tee: TeeTime) => props.selectedHoles === 'any' ? tee.holes : props.selectedHoles
 
-  return <div class="course-map-board">
+  return <div class="course-map-board" classList={{ 'course-map-fullscreen': mapFullscreen() }}>
     <div class="course-map-canvas" ref={container} aria-label="Map of golf courses" />
+    <button type="button" class="course-map-fullscreen-toggle" onClick={() => setMapFullscreen(!mapFullscreen())} aria-label={mapFullscreen() ? 'Exit fullscreen map' : 'Open fullscreen map'} title={mapFullscreen() ? 'Exit fullscreen' : 'Fullscreen map'}><svg viewBox="0 0 24 24" aria-hidden="true"><Show when={mapFullscreen()} fallback={<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />}><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5" /></Show></svg></button>
     <Show when={mapError()}>{(message) => <div class="course-map-empty">{message()}</div>}</Show>
     <Show when={props.courses.every((course) => course.latitude === undefined || course.longitude === undefined)}><div class="course-map-empty">No course locations are available.</div></Show>
     <Show when={selectedCourse()} keyed>{(course) => {

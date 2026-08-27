@@ -1366,6 +1366,11 @@ a.weather-chip:focus-visible {
 .course-map-board { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 3px 12px var(--shadow); flex: 1; min-height: 480px; overflow: hidden; position: relative; }
 .course-map-loading { align-items: center; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; color: var(--muted); display: flex; flex: 1; gap: 8px; justify-content: center; min-height: 480px; }
 .course-map-canvas { height: 100%; min-height: 480px; width: 100%; }
+.course-map-fullscreen { border: 0; border-radius: 0; bottom: 0; box-shadow: none; left: 0; min-height: 0; position: fixed; right: 0; top: 0; z-index: 250; }
+.course-map-fullscreen .course-map-canvas { height: 100dvh; min-height: 0; }
+.course-map-fullscreen-toggle { align-items: center; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--border); border-radius: 999px; bottom: 78px; box-shadow: 0 3px 12px var(--shadow); color: var(--accent-dark); cursor: pointer; display: flex; height: 40px; justify-content: center; position: absolute; right: 12px; width: 40px; z-index: 10; }
+.course-map-fullscreen-toggle:hover, .course-map-fullscreen-toggle:focus-visible { background: var(--panel-muted); border-color: var(--accent); outline: none; }
+.course-map-fullscreen-toggle svg { fill: none; height: 18px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; width: 18px; }
 .course-map-panel { background: color-mix(in srgb, var(--panel) 97%, transparent); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 36px rgb(0 0 0 / 22%); display: flex; flex-direction: column; max-height: calc(100% - 28px); overflow: hidden; position: absolute; right: 14px; top: 14px; width: min(370px, calc(100% - 28px)); z-index: 5; }
 .course-map-panel > header { align-items: center; border-bottom: 1px solid var(--divider); display: flex; gap: 10px; min-height: 78px; padding: 12px; }
 .course-map-panel > header.has-image { background-position: center; background-size: cover; color: #fff; min-height: 120px; padding-top: 50px; }
