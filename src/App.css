@@ -1296,9 +1296,9 @@ a.weather-chip:focus-visible {
 .timeline-toolbar { align-items: end; display: flex; gap: 14px; justify-content: space-between; margin-bottom: 8px; }
 .timeline-refiners { align-items: end; display: flex; gap: 10px; }
 .timeline-toolbar.map-view .course-filter-wrap { display: none; }
-.timeline-toolbar.map-view .timeline-refiners { order: 1; }
-.timeline-toolbar.map-view .map-time-filter { order: 2; }
-.timeline-toolbar.map-view .results-tools { order: 3; }
+.timeline-toolbar .timeline-refiners { order: 1; }
+.timeline-toolbar .map-time-filter { order: 2; }
+.timeline-toolbar .results-tools { order: 3; }
 .map-time-filter { flex: 1; max-width: 390px; min-width: 240px; }
 .map-time-filter .time-range-heading { margin-bottom: 3px; }
 .map-time-filter .time-range-heading [data-part='label'] { font-size: 9px; }
