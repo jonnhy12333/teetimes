@@ -13,7 +13,7 @@ interface SelectedTeeTime { course: Course; tee: TeeTime; price?: number; holes:
 type PlayerFilter = 'any' | 2 | 3 | 4
 type HoleFilter = 'any' | 9 | 18
 type TimeRange = [number, number]
-type EntryIntent = 'now' | 'tonight' | 'date'
+type EntryIntent = 'now' | 'tonight' | 'tomorrow' | 'date'
 type Coordinates = { latitude: number; longitude: number }
 type CourseSort = 'name' | 'nearest' | 'availability'
 type ResultsView = 'timeline' | 'map'
@@ -40,6 +40,13 @@ function automaticTimeRange(day: string): TimeRange {
   const now = new Date()
   const minutes = Math.floor((now.getHours() * 60 + now.getMinutes()) / 15) * 15
   return [Math.min(Math.max(timeMinimum, minutes), timeMaximum - 15), timeMaximum]
+}
+
+function playNowTimeRange(): TimeRange {
+  const now = new Date()
+  const minutes = Math.floor((now.getHours() * 60 + now.getMinutes()) / 15) * 15
+  const start = Math.min(Math.max(timeMinimum, minutes), timeMaximum - 15)
+  return [start, Math.min(start + 3 * 60, timeMaximum)]
 }
 
 function initialSearchState() {
@@ -559,12 +566,13 @@ export default function Dashboard() {
     setRefreshFailed(false)
     setError(null)
   }
-  function searchPlayNow() { const today = dateValue(new Date()); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange(automaticTimeRange(today)); setDay(today); void loadSearch(today) }
-  function searchTonight() { const today = dateValue(new Date()); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange([Math.max(16 * 60, automaticTimeRange(today)[0]), timeMaximum]); setDay(today); void loadSearch(today) }
+  function searchPlayNow() { const today = dateValue(new Date()); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange(playNowTimeRange()); setDay(today); void loadSearch(today) }
+  function searchTonight() { const today = dateValue(new Date()); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange([15 * 60, timeMaximum]); setDay(today); void loadSearch(today) }
+  function searchTomorrow() { const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); const value = dateValue(tomorrow); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange([...fullDayRange]); setDay(value); void loadSearch(value) }
   function submitEntrySearch() {
     if (entryIntent() === 'now') searchPlayNow()
-    else if (entryIntent() === 'tonight' && !combineImmediateChoices) searchTonight()
-    else if (entryIntent() === 'tonight') searchPlayNow()
+    else if (entryIntent() === 'tonight') searchTonight()
+    else if (entryIntent() === 'tomorrow') searchTomorrow()
     else { setTimeRange(automaticTimeRange(day())); runSearch() }
   }
   onMount(() => {
@@ -617,8 +625,7 @@ export default function Dashboard() {
     return minutes < 1 ? 'Updated just now' : `Updated ${minutes} min ago`
   }
   const TimelineZoomControls = () => <div class="timeline-zoom-controls" aria-label="Timeline zoom controls"><button type="button" onClick={() => applyTimelineZoom(timelineScale() / 1.25)} aria-label="Zoom out" title="Zoom out">−</button><input class="timeline-zoom-slider" type="range" min={timelineMinScale} max={timelineMaxScale} step="0.1" value={timelineScale()} onInput={(event) => applyTimelineZoom(Number(event.currentTarget.value))} aria-label="Timeline zoom level" /><button type="button" onClick={() => applyTimelineZoom(timelineScale() * 1.25)} aria-label="Zoom in" title="Zoom in">+</button><button type="button" class="timeline-reset-button" onClick={() => applyTimelineZoom(timelineDefaultScale)} title="Reset zoom">Reset</button></div>
-  const mapRangeMinimum = () => day() === dateValue(new Date()) ? Math.min(Math.max(timeMinimum, Math.floor(currentMinutes() / 15) * 15), timeMaximum - 15) : timeMinimum
-  const MapTimeRange = () => <Slider.Root class="time-range-picker map-time-filter" min={mapRangeMinimum()} max={timeMaximum} step={15} minStepsBetweenThumbs={1} value={timeRange()} onValueChange={(details) => setTimeRange([details.value[0], details.value[1]])}>
+  const MapTimeRange = () => <Slider.Root class="time-range-picker map-time-filter" min={timeMinimum} max={timeMaximum} step={15} minStepsBetweenThumbs={1} value={timeRange()} onValueChange={(details) => setTimeRange([details.value[0], details.value[1]])}>
     <div class="time-range-heading"><Slider.Label>Time</Slider.Label><strong>{formatMinutes(timeRange()[0])} – {formatMinutes(timeRange()[1])}</strong></div>
     <Slider.Control class="time-range-control"><Slider.Track class="time-range-track"><Slider.Range class="time-range-fill" /></Slider.Track><Slider.Thumb class="time-range-thumb" index={0}><Slider.HiddenInput /></Slider.Thumb><Slider.Thumb class="time-range-thumb" index={1}><Slider.HiddenInput /></Slider.Thumb></Slider.Control>
   </Slider.Root>
@@ -629,8 +636,8 @@ export default function Dashboard() {
       <section class="entry-screen">
         <div class="entry-copy"><p class="eyebrow">TEE TIMES NEAR YOU</p><h1>What kind of round are you looking for?</h1><p>Choose your search, optionally narrow it to one course, then find tee times.</p></div>
         <div class="entry-choices" role="radiogroup" aria-label="When do you want to play?">
-          <button type="button" role="radio" aria-checked={entryIntent() === 'now'} classList={{ active: entryIntent() === 'now' }} onClick={() => { setEntryIntent('now'); setChoosingDate(false) }}><strong>Play now</strong><span>Today · from now</span></button>
-          <Show when={!combineImmediateChoices}><button type="button" role="radio" aria-checked={entryIntent() === 'tonight'} classList={{ active: entryIntent() === 'tonight' }} onClick={() => { setEntryIntent('tonight'); setChoosingDate(false) }}><strong>Play tonight</strong><span>Today · after 4 PM</span></button></Show>
+          <button type="button" role="radio" aria-checked={entryIntent() === 'now'} classList={{ active: entryIntent() === 'now' }} onClick={() => { setEntryIntent('now'); setChoosingDate(false) }}><strong>Play now</strong><span>Today · next 3 hours</span></button>
+          <Show when={!combineImmediateChoices} fallback={<button type="button" role="radio" aria-checked={entryIntent() === 'tomorrow'} classList={{ active: entryIntent() === 'tomorrow' }} onClick={() => { setEntryIntent('tomorrow'); setChoosingDate(false) }}><strong>Play tomorrow</strong><span>Tomorrow · all day</span></button>}><button type="button" role="radio" aria-checked={entryIntent() === 'tonight'} classList={{ active: entryIntent() === 'tonight' }} onClick={() => { setEntryIntent('tonight'); setChoosingDate(false) }}><strong>Play tonight</strong><span>Today · 3–7 PM</span></button></Show>
           <button type="button" role="radio" aria-checked={entryIntent() === 'date'} classList={{ active: entryIntent() === 'date' }} onClick={() => { setEntryIntent('date'); setChoosingDate(true) }}><strong>Choose a date</strong><span>Open the calendar</span></button>
         </div>
         <Show when={choosingDate()}><div class="entry-date"><div class="search-control date-control"><label>Date</label><div class="board-date-nav"><button type="button" class="date-arrow" disabled={day() === dateValue(new Date())} onClick={() => stepDay(-1)} aria-label="Previous day">‹</button><CalendarPicker value={day()} label={dayLabel()} onChange={changeDay} /><button type="button" class="date-arrow" onClick={() => stepDay(1)} aria-label="Next day">›</button></div></div></div></Show>
@@ -647,12 +654,12 @@ export default function Dashboard() {
     <header class="results-header"><button type="button" class="new-search-btn" onClick={startNewSearch} aria-label="Start a new search" title="New search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg></button><div class="board-date-nav"><button type="button" class="date-arrow" disabled={day() === dateValue(new Date())} onClick={() => stepDay(-1)} aria-label="Previous day">‹</button><CalendarPicker value={day()} label={dayLabel()} onChange={changeDay} /><button type="button" class="date-arrow" onClick={() => stepDay(1)} aria-label="Next day">›</button></div><ThemeSwitch /></header>
     <section class="search-results" aria-busy={loading()}>
       <div class="timeline-toolbar" classList={{ 'map-view': resultsView() === 'map' }} aria-label="Results controls">
-        <Show when={resultsView() === 'map'}><MapTimeRange /></Show>
+        <MapTimeRange />
         <div class="timeline-refiners"><fieldset class="compact-filter"><legend>Players</legend><div>{(['any', 2, 3, 4] as const).map((value) => <button type="button" classList={{ active: players() === value }} aria-pressed={players() === value} onClick={() => setPlayers(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><fieldset class="compact-filter"><legend>Holes</legend><div>{(['any', 9, 18] as const).map((value) => <button type="button" classList={{ active: holes() === value }} aria-pressed={holes() === value} onClick={() => setHoles(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><Show when={!selectedEntryCourse()}><div class="course-filter-wrap" data-course-filter><span class="course-filter-label">Courses</span><button type="button" class="course-filter-trigger" classList={{ active: courseDistance() !== 'any' || courseSort() !== 'name' || selectedCourseIds() !== null }} aria-expanded={courseFilterOpen()} onClick={() => setCourseFilterOpen(!courseFilterOpen())}>{visibleCourseCount()} of {totalSearchedCourseCount()}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5" /></svg></button><Show when={courseFilterOpen()}><section class="course-filter-panel" aria-label="Filter courses"><header><strong>Courses</strong><button type="button" onClick={() => setCourseFilterOpen(false)} aria-label="Close course filters">×</button></header><div class="course-filter-options"><label>Sort by<select value={courseSort()} onChange={(event) => void chooseCourseSort(event.currentTarget.value as CourseSort)}><option value="name">Course name</option><option value="availability">Most tee times</option><option value="nearest">Nearest</option></select></label><label>Distance<select value={courseDistance()} onChange={(event) => void chooseCourseDistance(event.currentTarget.value === 'any' ? 'any' : Number(event.currentTarget.value))}><option value="any">Any distance</option><option value="5">Within 5 miles</option><option value="10">Within 10 miles</option><option value="15">Within 15 miles</option><option value="25">Within 25 miles</option></select></label></div><Show when={locationError()}><p class="course-filter-error">{locationError()}</p></Show><input class="course-filter-search" type="search" value={courseFilterQuery()} onInput={(event) => setCourseFilterQuery(event.currentTarget.value)} placeholder="Find a course or town" aria-label="Find a course or town" /><div class="course-filter-actions"><button type="button" onClick={() => setSelectedCourseIds(null)}>Select all</button><button type="button" onClick={() => setSelectedCourseIds([])}>Clear all</button><button type="button" onClick={() => { setSelectedCourseIds(null); setCourseDistance('any'); setCourseSort('name'); setLocationError('') }}>Reset</button></div><div class="course-filter-list"><For each={filterableCourses()}>{(course) => <label><input type="checkbox" checked={selectedCourseIds() === null || selectedCourseIds()!.includes(course.id)} onChange={() => toggleCourse(course.id)} /><span class="course-avatar compact"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></span><span><strong>{course.name}</strong><small>{course.city}, {course.state}<Show when={distanceFor(course) !== undefined}> · {distanceFor(course)!.toFixed(1)} mi</Show></small></span></label>}</For></div></section></Show></div></Show></div>
-        <div class="results-tools"><div class="results-view-switch" role="group" aria-label="Results view"><button type="button" classList={{ active: resultsView() === 'timeline' }} aria-pressed={resultsView() === 'timeline'} onClick={() => setResultsView('timeline')}>Timeline</button><button type="button" classList={{ active: resultsView() === 'map' }} aria-pressed={resultsView() === 'map'} onClick={() => setResultsView('map')}>Map</button></div><span class="refresh-status" classList={{ failed: refreshFailed() }}>{updateLabel()}</span></div>
+        <div class="results-tools"><span class="refresh-status" classList={{ failed: refreshFailed() }}>{updateLabel()}</span><div class="results-view-switch" role="group" aria-label="Results view"><button type="button" classList={{ active: resultsView() === 'timeline' }} aria-pressed={resultsView() === 'timeline'} onClick={() => setResultsView('timeline')}>Timeline</button><button type="button" classList={{ active: resultsView() === 'map' }} aria-pressed={resultsView() === 'map'} onClick={() => setResultsView('map')}>Map</button></div></div>
       </div>
       <Show when={error()}>{(message) => <div class="empty-state standalone">{message()}</div>}</Show>
-      <Show when={resultsView() === 'timeline'} fallback={<Suspense fallback={<div class="course-map-loading"><span class="loading-spinner" />Loading map…</div>}><CourseMap courses={resultCourses()} timesByCourse={mapTimesByCourse()} selectedHoles={holes()} loadingCourseIds={loadingCourseIds()} failedCourseIds={failedCourseIds()} userLocation={location()} onSelectCourse={setInfoCourse} onSelectTeeTime={showTeeTimeDetails} /></Suspense>}><div class="timeline-board" classList={{ 'timeline-fullscreen': timelineFullscreen() }}>
+      <Show when={resultsView() === 'timeline'} fallback={<Suspense fallback={<div class="course-map-loading"><span class="loading-spinner" />Loading map…</div>}><CourseMap courses={resultCourses()} timesByCourse={mapTimesByCourse()} selectedHoles={holes()} loadingCourseIds={loadingCourseIds()} failedCourseIds={failedCourseIds()} userLocation={location()} theme={theme} onSelectCourse={setInfoCourse} onSelectTeeTime={showTeeTimeDetails} /></Suspense>}><div class="timeline-board" classList={{ 'timeline-fullscreen': timelineFullscreen() }}>
         <div class="timeline-floating-controls"><TimelineZoomControls /><button type="button" class="timeline-board-fullscreen" onClick={() => setTimelineFullscreen(!timelineFullscreen())} aria-label={timelineFullscreen() ? 'Exit fullscreen timeline' : 'Open fullscreen timeline'} title={timelineFullscreen() ? 'Exit fullscreen' : 'Fullscreen timeline'}><svg viewBox="0 0 24 24" aria-hidden="true"><Show when={timelineFullscreen()} fallback={<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />}><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5" /></Show></svg></button></div>
         <div class="timeline-scroll" classList={{ 'course-rail-collapsed': courseRailCollapsed(), 'zoom-overview': timelineZoomMode() === 'overview', 'zoom-compact': timelineZoomMode() === 'compact', 'zoom-standard': timelineZoomMode() === 'standard', 'zoom-detailed': timelineZoomMode() === 'detailed' }} ref={timelineScroller} onPointerDown={beginTimelineDrag} onPointerMove={moveTimelineDrag} onPointerUp={endTimelineDrag} onPointerCancel={endTimelineDrag} onWheel={handleTimelineWheel} onClickCapture={handleTimelineClick}>
           <div class="timeline-canvas">

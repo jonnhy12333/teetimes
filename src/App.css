@@ -1285,7 +1285,7 @@ a.weather-chip:focus-visible {
 .search-results { display: flex; flex: 1; flex-direction: column; min-height: 0; min-width: 0; }
 .results-toolbar { align-items: center; display: flex; justify-content: flex-end; margin: 0 2px 13px; }
 .results-tools { align-items: center; display: flex; gap: 9px; justify-content: flex-end; }
-.refresh-status { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.refresh-status { color: var(--muted); display: inline-block; font-size: 11px; min-width: 104px; text-align: right; white-space: nowrap; }
 .refresh-status.failed { color: var(--danger); }
 .results-view-switch { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; display: flex; height: 32px; overflow: hidden; }
 .results-view-switch button { background: transparent; border: 0; border-left: 1px solid var(--divider); color: var(--muted); cursor: pointer; font: inherit; font-size: 11px; font-weight: 750; padding: 0 11px; }
@@ -1585,7 +1585,7 @@ a.weather-chip:focus-visible {
   .course-filter-list { max-height: 48dvh; }
   .compact-filter button { min-width: 31px; padding-inline: 7px; }
   .timeline-toolbar .results-tools { flex: 1 0 100%; justify-content: flex-end; min-width: 0; width: auto; }
-  .timeline-toolbar.map-view .map-time-filter { flex: 1 0 100%; max-width: none; min-width: 0; width: 100%; }
+  .timeline-toolbar .map-time-filter { flex: 1 0 100%; max-width: none; min-width: 0; width: 100%; }
   .timeline-floating-controls .timeline-zoom-controls { display: none; }
   .timeline-fullscreen .timeline-floating-controls .timeline-zoom-controls { display: inline-flex; }
   .course-map-board, .course-map-canvas { min-height: 420px; }

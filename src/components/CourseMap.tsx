@@ -11,6 +11,7 @@ interface CourseMapProps {
   loadingCourseIds: string[]
   failedCourseIds: string[]
   userLocation: { latitude: number; longitude: number } | null
+  theme: () => 'light' | 'dark'
   onSelectCourse: (course: Course) => void
   onSelectTeeTime: (course: Course, tee: TeeTime, price: number | undefined, holes: number | string) => void
 }
@@ -26,8 +27,37 @@ function loadMapsLibrary() {
   return mapsLibraryPromise
 }
 
+const darkMapStyles: google.maps.MapTypeStyle[] = [
+  { elementType: 'geometry', stylers: [{ color: '#1d2a2a' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1d2a2a' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#a8b8b0' }] },
+  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#d4ddd7' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#9fb5a8' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#203c31' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#7fa58c' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#344340' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#182421' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#b3c0bb' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#53635d' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#17231f' }] },
+  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#e0e8e3' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2a3835' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#142d38' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#7796a0' }] },
+  { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#142d38' }] }
+]
+
+const hiddenPoiStyles: google.maps.MapTypeStyle[] = [
+  { featureType: 'poi.business', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi.sports_complex', elementType: 'labels', stylers: [{ visibility: 'off' }] }
+]
+
+const mapStyles = (theme: 'light' | 'dark') => theme === 'dark'
+  ? [...darkMapStyles, ...hiddenPoiStyles]
+  : hiddenPoiStyles
+
 function selectedMarkerIcon(fillColor: string): google.maps.Icon {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="54" height="64" viewBox="0 0 54 64"><defs><filter id="s" x="-40%" y="-30%" width="180%" height="180%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#s)"><path d="M27 5v18" stroke="#27632d" stroke-width="3" stroke-linecap="round"/><path d="M29 6 45 12 29 18Z" fill="#4caf50" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><circle cx="27" cy="40" r="19" fill="${fillColor}" stroke="#fff" stroke-width="4"/></g></svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="54" height="64" viewBox="0 0 54 64"><defs><filter id="s" x="-40%" y="-30%" width="180%" height="180%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#s)"><path d="M27 5v18" stroke="#b3261e" stroke-width="3" stroke-linecap="round"/><path d="M29 6 45 12 29 18Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><circle cx="27" cy="40" r="19" fill="${fillColor}" stroke="#fff" stroke-width="4"/></g></svg>`
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
     scaledSize: new google.maps.Size(54, 64),
@@ -39,9 +69,11 @@ function selectedMarkerIcon(fillColor: string): google.maps.Icon {
 export default function CourseMap(props: CourseMapProps) {
   const [mapReady, setMapReady] = createSignal(false)
   const [mapError, setMapError] = createSignal('')
+  const [mapsLibrary, setMapsLibrary] = createSignal<google.maps.MapsLibrary | null>(null)
   const [selectedCourseId, setSelectedCourseId] = createSignal<string | null>(null)
   let container!: HTMLDivElement
   let map: google.maps.Map | undefined
+  let mapClickListener: google.maps.MapsEventListener | undefined
   const markers = new Map<string, google.maps.Marker>()
   let locationMarker: google.maps.Marker | undefined
   let fittedCourseKey = ''
@@ -55,18 +87,9 @@ export default function CourseMap(props: CourseMapProps) {
 
   onMount(() => {
     let disposed = false
-    void loadMapsLibrary().then(({ Map }) => {
+    void loadMapsLibrary().then((library) => {
       if (disposed) return
-      map = new Map(container, {
-        center: { lat: 42.9, lng: -71.35 },
-        zoom: 9,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        clickableIcons: false,
-        gestureHandling: 'greedy'
-      })
-      setMapReady(true)
+      setMapsLibrary(library)
     }).catch((error) => setMapError(error instanceof Error ? error.message : 'Google Maps could not be loaded.'))
     onCleanup(() => {
       disposed = true
@@ -74,8 +97,33 @@ export default function CourseMap(props: CourseMapProps) {
       markers.clear()
       locationMarker?.setMap(null)
       locationMarker = undefined
+      mapClickListener?.remove()
+      mapClickListener = undefined
       map = undefined
     })
+  })
+
+  createEffect(() => {
+    const library = mapsLibrary()
+    const theme = props.theme()
+    if (!library) return
+    if (!map) {
+      map = new library.Map(container, {
+        center: { lat: 42.9, lng: -71.35 },
+        zoom: 9,
+        renderingType: google.maps.RenderingType.RASTER,
+        styles: mapStyles(theme),
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        clickableIcons: false,
+        gestureHandling: 'greedy'
+      })
+      mapClickListener = map.addListener('click', () => setSelectedCourseId(null))
+      setMapReady(true)
+      return
+    }
+    map.setOptions({ styles: mapStyles(theme) })
   })
 
   createEffect(() => {
