@@ -115,7 +115,8 @@ export default function CourseMap(props: CourseMapProps) {
         styles: mapStyles(theme),
         mapTypeControl: false,
         streetViewControl: false,
-        fullscreenControl: false,
+        fullscreenControl: true,
+        fullscreenControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
         clickableIcons: false,
         gestureHandling: 'greedy'
       })
