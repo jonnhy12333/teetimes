@@ -8,7 +8,7 @@ export interface AppRelease {
 // Add the newest user-facing release first before pushing an app update.
 export const appReleases: AppRelease[] = [
   {
-    id: '2026-09-01-map-catalog',
+    id: '2026-09-01-course-hours',
     date: 'September 1, 2026',
     title: 'Nearby results, radar, and forecasts',
     changes: [
@@ -20,6 +20,8 @@ export const appReleases: AppRelease[] = [
       'Added an in-app What’s new panel for discovering recent improvements.',
       'Map view now includes every active course while opening at a useful nearby area instead of zooming out for distant courses.',
       'Courses sharing one location now get separate map markers instead of overlapping badges.',
+      'Added live open or closed status and daily hours to course and tee-time details.',
+      'Improved selected map markers so their flag and shadow render cleanly.',
     ],
   },
   {

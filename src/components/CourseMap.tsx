@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
-import { importLibrary, setOptions } from '@googlemaps/js-api-loader'
 import type { Course, TeeTime } from './Dashboard'
+import CourseHours from './CourseHours'
+import { loadMapsLibrary } from '../googleMaps'
 
 type HoleFilter = 'any' | 9 | 18
 
@@ -15,17 +16,6 @@ interface CourseMapProps {
   theme: () => 'light' | 'dark'
   onSelectCourse: (course: Course) => void
   onSelectTeeTime: (course: Course, tee: TeeTime, price: number | undefined, holes: number | string) => void
-}
-
-let mapsLibraryPromise: Promise<google.maps.MapsLibrary> | undefined
-function loadMapsLibrary() {
-  const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-  if (!key) return Promise.reject(new Error('Google Maps API key is not configured.'))
-  if (!mapsLibraryPromise) {
-    setOptions({ key, v: 'weekly', authReferrerPolicy: 'origin' })
-    mapsLibraryPromise = importLibrary('maps')
-  }
-  return mapsLibraryPromise
 }
 
 const darkMapStyles: google.maps.MapTypeStyle[] = [
@@ -58,13 +48,14 @@ const mapStyles = (theme: 'light' | 'dark') => theme === 'dark'
   : hiddenPoiStyles
 
 function selectedMarkerIcon(fillColor: string, horizontalOffset = 0): google.maps.Icon {
-  const centerX = 20
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="64" viewBox="0 0 40 64"><defs><filter id="s" x="-40%" y="-30%" width="180%" height="180%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#s)"><path d="M${centerX} 5v18" stroke="#b3261e" stroke-width="3" stroke-linecap="round"/><path d="M${centerX + 2} 6 ${centerX + 18} 12 ${centerX + 2} 18Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><circle cx="${centerX}" cy="40" r="19" fill="${fillColor}" stroke="#fff" stroke-width="4"/></g></svg>`
+  const centerX = 26
+  const markerY = 44
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="56" height="72" viewBox="0 0 56 72"><defs><filter id="s" x="-40%" y="-30%" width="180%" height="180%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#s)"><path d="M${centerX} 9v18" stroke="#b3261e" stroke-width="3" stroke-linecap="round"/><path d="M${centerX + 2} 10 ${centerX + 18} 16 ${centerX + 2} 22Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><circle cx="${centerX}" cy="${markerY}" r="19" fill="${fillColor}" stroke="#fff" stroke-width="4"/></g></svg>`
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-    scaledSize: new google.maps.Size(40, 64),
-    anchor: new google.maps.Point(centerX - horizontalOffset, 40),
-    labelOrigin: new google.maps.Point(centerX, 40)
+    scaledSize: new google.maps.Size(56, 72),
+    anchor: new google.maps.Point(centerX - horizontalOffset, markerY),
+    labelOrigin: new google.maps.Point(centerX, markerY)
   }
 }
 
@@ -337,7 +328,7 @@ export default function CourseMap(props: CourseMapProps) {
       return <aside class="course-map-panel" aria-label={`${course.name} tee times`}>
         <header classList={{ 'has-image': Boolean(course.headerImageUrl) }} style={course.headerImageUrl ? { 'background-image': `linear-gradient(180deg, rgb(8 18 12 / 8%) 0%, rgb(8 18 12 / 82%) 100%), url("${course.headerImageUrl}")` } : undefined}>
           <button type="button" class="course-avatar course-avatar-button" onClick={() => props.onSelectCourse(course)} aria-label={`View information about ${course.name}`}><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></button>
-          <div><button type="button" class="course-name course-name-button" onClick={() => props.onSelectCourse(course)}>{course.name}</button><p>{course.city}, {course.state}</p></div>
+          <div><button type="button" class="course-name course-name-button" onClick={() => props.onSelectCourse(course)}>{course.name}</button><p>{course.city}, {course.state}</p><CourseHours course={course} inline /></div>
           <button type="button" class="course-map-panel-close" onClick={() => setSelectedCourseId(null)} aria-label="Close course tee times">×</button>
         </header>
         <div class="course-map-panel-body">
