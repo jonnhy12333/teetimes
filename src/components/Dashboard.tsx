@@ -11,6 +11,17 @@ export interface Course { id: string; name: string; city: string; state: string;
 export interface TeeTime { id: string; courseId: string; time: string; date: string; holes: number | string; options?: Array<{ holes: 9 | 18; price?: number }>; price?: number; availableSpots?: number; bookingUrl: string }
 interface SelectedTeeTime { course: Course; tee: TeeTime; price?: number; holes: number | string }
 interface WeatherHour { time: string; temperature?: number; apparentTemperature?: number; weatherCode?: number; windSpeed?: number; windGust?: number; precipitationProbability?: number }
+interface OpenMeteoWeather {
+  hourly?: {
+    time?: string[]
+    temperature_2m?: number[]
+    apparent_temperature?: number[]
+    weather_code?: number[]
+    wind_speed_10m?: number[]
+    wind_gusts_10m?: number[]
+    precipitation_probability?: number[]
+  }
+}
 type PlayerFilter = 'any' | 2 | 3 | 4
 type HoleFilter = 'any' | 9 | 18
 type TimeRange = [number, number]
@@ -425,16 +436,34 @@ export default function Dashboard() {
     }
     const controller = new AbortController()
     setTeeTimeWeatherLoading(true)
-    void fetch(`${apiBaseUrl}/api/courses/${selection.course.id}/weather?date=${encodeURIComponent(selection.tee.date)}`, { signal: controller.signal, cache: 'no-store' })
+    const weatherQuery = new URLSearchParams({
+      latitude: String(selection.course.latitude),
+      longitude: String(selection.course.longitude),
+      hourly: 'temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,precipitation_probability',
+      temperature_unit: 'fahrenheit',
+      wind_speed_unit: 'mph',
+      timezone: 'America/New_York',
+      start_date: selection.tee.date,
+      end_date: selection.tee.date,
+    })
+    void fetch(`https://api.open-meteo.com/v1/forecast?${weatherQuery}`, { signal: controller.signal, cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Weather request failed with ${response.status}`)
-        return response.json() as Promise<{ hourly?: WeatherHour[]; unavailable?: boolean }>
+        return response.json() as Promise<OpenMeteoWeather>
       })
       .then((data) => {
         if (controller.signal.aborted) return
-        const hourly = Array.isArray(data.hourly) ? data.hourly : []
+        const hourly = (data.hourly?.time || []).map((time, index): WeatherHour => ({
+          time,
+          temperature: data.hourly?.temperature_2m?.[index],
+          apparentTemperature: data.hourly?.apparent_temperature?.[index],
+          weatherCode: data.hourly?.weather_code?.[index],
+          windSpeed: data.hourly?.wind_speed_10m?.[index],
+          windGust: data.hourly?.wind_gusts_10m?.[index],
+          precipitationProbability: data.hourly?.precipitation_probability?.[index],
+        }))
         setTeeTimeWeather(hourly)
-        setTeeTimeWeatherUnavailable(Boolean(data.unavailable) || hourly.length === 0)
+        setTeeTimeWeatherUnavailable(hourly.length === 0)
       })
       .catch((error) => {
         if (!controller.signal.aborted) {
