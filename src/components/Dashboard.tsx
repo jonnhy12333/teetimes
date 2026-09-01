@@ -31,9 +31,8 @@ type CourseSort = 'name' | 'nearest' | 'availability'
 type ResultsView = 'timeline' | 'map'
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || ''
-const locationKey = 'tee-times-location'
 const courseRailKey = 'tee-times-course-rail-collapsed'
-const courseFilterKey = 'tee-times-course-filters'
+const courseFilterKey = 'tee-times-course-filters-v3'
 const dateValue = (date: Date) => date.toISOString().slice(0, 10)
 const playerFilters: PlayerFilter[] = ['any', 2, 3, 4]
 const holeFilters: HoleFilter[] = ['any', 9, 18]
@@ -280,13 +279,14 @@ export default function Dashboard() {
   const [error, setError] = createSignal<string | null>(null)
   const [coursePickerOpen, setCoursePickerOpen] = createSignal(false)
   const savedCourseFilters = (() => {
-    try { return JSON.parse(localStorage.getItem(courseFilterKey) || '{}') as { selected?: string[] | null; distance?: number | 'any'; sort?: CourseSort } } catch { return {} }
+    try { return JSON.parse(localStorage.getItem(courseFilterKey) || '{}') as { selected?: string[] | null; distance?: number | 'any'; sort?: CourseSort; showUnavailable?: boolean } } catch { return {} }
   })()
   const [courseFilterOpen, setCourseFilterOpen] = createSignal(false)
   const [courseFilterQuery, setCourseFilterQuery] = createSignal('')
   const [selectedCourseIds, setSelectedCourseIds] = createSignal<string[] | null>(savedCourseFilters.selected ?? null)
-  const [courseDistance, setCourseDistance] = createSignal<number | 'any'>(savedCourseFilters.distance ?? 'any')
-  const [courseSort, setCourseSort] = createSignal<CourseSort>(savedCourseFilters.sort ?? 'name')
+  const [courseDistance, setCourseDistance] = createSignal<number | 'any'>(savedCourseFilters.distance ?? 25)
+  const [courseSort, setCourseSort] = createSignal<CourseSort>(savedCourseFilters.sort ?? 'availability')
+  const [showUnavailable, setShowUnavailable] = createSignal(savedCourseFilters.showUnavailable ?? true)
   const [locationError, setLocationError] = createSignal('')
   const [infoCourse, setInfoCourse] = createSignal<Course | null>(null)
   const [choosingDate, setChoosingDate] = createSignal(false)
@@ -308,6 +308,7 @@ export default function Dashboard() {
   let timelineDragStartScrollTop = 0
   let timelineDragPointer: number | undefined
   let suppressTimelineClick = false
+  let locationRequested = false
   const timelinePointers = new Map<number, { x: number; y: number }>()
   let pinchStartDistance = 0
   let pinchStartScale = timelineDefaultScale
@@ -505,7 +506,7 @@ export default function Dashboard() {
 
   createEffect(() => { document.documentElement.dataset.theme = theme(); localStorage.setItem('theme', theme()) })
   createEffect(() => { localStorage.setItem(courseRailKey, String(courseRailCollapsed())) })
-  createEffect(() => { localStorage.setItem(courseFilterKey, JSON.stringify({ selected: selectedCourseIds(), distance: courseDistance(), sort: courseSort() })) })
+  createEffect(() => { localStorage.setItem(courseFilterKey, JSON.stringify({ selected: selectedCourseIds(), distance: courseDistance(), sort: courseSort(), showUnavailable: showUnavailable() })) })
   createEffect(() => {
     if (!infoCourse()) return
     const previousOverflow = document.body.style.overflow
@@ -569,22 +570,24 @@ export default function Dashboard() {
     const selected = selectedCourseIds()
     const maximumDistance = courseDistance()
     const singleCourseSearch = Boolean(selectedEntryCourse())
-    const mapView = resultsView() === 'map'
     const filtered = courses().filter((course) => {
       if (!searchedCourseIds().includes(course.id)) return false
-      if (!singleCourseSearch && !mapView && selected !== null && !selected.includes(course.id)) return false
-      if (!singleCourseSearch && !mapView && maximumDistance !== 'any') {
+      if (!singleCourseSearch && selected !== null && !selected.includes(course.id)) return false
+      if (!singleCourseSearch && maximumDistance !== 'any' && location()) {
         const distance = distanceFor(course)
         if (distance === undefined || distance > maximumDistance) return false
       }
+      if (!singleCourseSearch && !showUnavailable() && !loadingCourseIds().includes(course.id) && timesFor(course.id).length === 0) return false
       return true
     })
     return filtered.sort((a, b) => {
-      if (!singleCourseSearch && !mapView && courseSort() === 'nearest') {
+      if (!singleCourseSearch && courseSort() === 'nearest') {
         return (distanceFor(a) ?? Number.MAX_SAFE_INTEGER) - (distanceFor(b) ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name)
       }
-      if (!singleCourseSearch && !mapView && courseSort() === 'availability') {
-        return timesFor(b.id).length - timesFor(a.id).length || a.name.localeCompare(b.name)
+      if (!singleCourseSearch && courseSort() === 'availability') {
+        return timesFor(b.id).length - timesFor(a.id).length
+          || (distanceFor(a) ?? Number.MAX_SAFE_INTEGER) - (distanceFor(b) ?? Number.MAX_SAFE_INTEGER)
+          || a.name.localeCompare(b.name)
       }
       return a.name.localeCompare(b.name)
     })
@@ -605,17 +608,15 @@ export default function Dashboard() {
     }))
   })
 
-  function readSavedLocation() {
-    try { const saved = JSON.parse(localStorage.getItem(locationKey) || '') as Coordinates; if (Number.isFinite(saved.latitude) && Number.isFinite(saved.longitude)) setLocation(saved) } catch { /* No saved location. */ }
-  }
   function requestLocation() {
     if (location()) return Promise.resolve(location())
+    if (locationRequested) return Promise.resolve(null)
+    locationRequested = true
     if (!navigator.geolocation) { setLocationError('Location is not available in this browser.'); return Promise.resolve(null) }
     setLocationError('')
     return new Promise<Coordinates | null>((resolve) => navigator.geolocation.getCurrentPosition((position) => {
       const coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude }
       setLocation(coordinates)
-      localStorage.setItem(locationKey, JSON.stringify(coordinates))
       resolve(coordinates)
     }, () => { setLocationError('Allow location access to sort or filter by distance.'); resolve(null) }, { enableHighAccuracy: false, maximumAge: 15 * 60_000, timeout: 10_000 }))
   }
@@ -638,7 +639,6 @@ export default function Dashboard() {
     if (!response.ok) throw new Error()
     const list = (await response.json() as Course[]).filter((course) => course.status !== 'unsupported')
     setCourses(list)
-    readSavedLocation()
     if (selectedEntryCourse() && !list.some((course) => course.id === selectedEntryCourse())) setSelectedEntryCourse('')
     return list
   }
@@ -648,6 +648,7 @@ export default function Dashboard() {
     let successfulCourses = 0
     if (options.background) { setRefreshing(true); setRefreshFailed(false) }
     else { setLoading(true); setError(null); setTeeTimes([]); setFailedCourseIds([]); setLastUpdated(null) }
+    if (!selectedEntryCourse() && courseDistance() !== 'any' && !location()) void requestLocation()
     try {
       const allCourses = await loadCourseCatalog()
       const list = selectedEntryCourse() ? allCourses.filter((course) => course.id === selectedEntryCourse()) : allCourses
@@ -787,7 +788,7 @@ export default function Dashboard() {
     <section class="search-results" aria-busy={loading()}>
       <div class="timeline-toolbar" classList={{ 'map-view': resultsView() === 'map' }} aria-label="Results controls">
         <MapTimeRange />
-        <div class="timeline-refiners"><fieldset class="compact-filter"><legend>Players</legend><div>{(['any', 2, 3, 4] as const).map((value) => <button type="button" classList={{ active: players() === value }} aria-pressed={players() === value} onClick={() => setPlayers(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><fieldset class="compact-filter"><legend>Holes</legend><div>{(['any', 9, 18] as const).map((value) => <button type="button" classList={{ active: holes() === value }} aria-pressed={holes() === value} onClick={() => setHoles(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><Show when={!selectedEntryCourse()}><div class="course-filter-wrap" data-course-filter><span class="course-filter-label">Courses</span><button type="button" class="course-filter-trigger" classList={{ active: courseDistance() !== 'any' || courseSort() !== 'name' || selectedCourseIds() !== null }} aria-expanded={courseFilterOpen()} onClick={() => setCourseFilterOpen(!courseFilterOpen())}>{visibleCourseCount()} of {totalSearchedCourseCount()}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5" /></svg></button><Show when={courseFilterOpen()}><section class="course-filter-panel" aria-label="Filter courses"><header><strong>Courses</strong><button type="button" onClick={() => setCourseFilterOpen(false)} aria-label="Close course filters">×</button></header><div class="course-filter-options"><label>Sort by<select value={courseSort()} onChange={(event) => void chooseCourseSort(event.currentTarget.value as CourseSort)}><option value="name">Course name</option><option value="availability">Most tee times</option><option value="nearest">Nearest</option></select></label><label>Distance<select value={courseDistance()} onChange={(event) => void chooseCourseDistance(event.currentTarget.value === 'any' ? 'any' : Number(event.currentTarget.value))}><option value="any">Any distance</option><option value="5">Within 5 miles</option><option value="10">Within 10 miles</option><option value="15">Within 15 miles</option><option value="25">Within 25 miles</option></select></label></div><Show when={locationError()}><p class="course-filter-error">{locationError()}</p></Show><input class="course-filter-search" type="search" value={courseFilterQuery()} onInput={(event) => setCourseFilterQuery(event.currentTarget.value)} placeholder="Find a course or town" aria-label="Find a course or town" /><div class="course-filter-actions"><button type="button" onClick={() => setSelectedCourseIds(null)}>Select all</button><button type="button" onClick={() => setSelectedCourseIds([])}>Clear all</button><button type="button" onClick={() => { setSelectedCourseIds(null); setCourseDistance('any'); setCourseSort('name'); setLocationError('') }}>Reset</button></div><div class="course-filter-list"><For each={filterableCourses()}>{(course) => <label><input type="checkbox" checked={selectedCourseIds() === null || selectedCourseIds()!.includes(course.id)} onChange={() => toggleCourse(course.id)} /><span class="course-avatar compact"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></span><span><strong>{course.name}</strong><small>{course.city}, {course.state}<Show when={distanceFor(course) !== undefined}> · {distanceFor(course)!.toFixed(1)} mi</Show></small></span></label>}</For></div></section></Show></div></Show></div>
+        <div class="timeline-refiners"><fieldset class="compact-filter"><legend>Players</legend><div>{(['any', 2, 3, 4] as const).map((value) => <button type="button" classList={{ active: players() === value }} aria-pressed={players() === value} onClick={() => setPlayers(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><fieldset class="compact-filter"><legend>Holes</legend><div>{(['any', 9, 18] as const).map((value) => <button type="button" classList={{ active: holes() === value }} aria-pressed={holes() === value} onClick={() => setHoles(value)}>{value === 'any' ? 'Any' : value}</button>)}</div></fieldset><Show when={!selectedEntryCourse()}><div class="course-filter-wrap" data-course-filter><span class="course-filter-label">Courses</span><button type="button" class="course-filter-trigger" classList={{ active: courseDistance() !== 25 || courseSort() !== 'availability' || selectedCourseIds() !== null || !showUnavailable() }} aria-expanded={courseFilterOpen()} onClick={() => setCourseFilterOpen(!courseFilterOpen())}>{visibleCourseCount()} of {totalSearchedCourseCount()}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5" /></svg></button><Show when={courseFilterOpen()}><section class="course-filter-panel" aria-label="Filter courses"><header><strong>Courses</strong><button type="button" onClick={() => setCourseFilterOpen(false)} aria-label="Close course filters">×</button></header><div class="course-filter-options"><label>Sort by<select value={courseSort()} onChange={(event) => void chooseCourseSort(event.currentTarget.value as CourseSort)}><option value="name">Course name</option><option value="availability">Most tee times</option><option value="nearest">Nearest</option></select></label><label>Distance<select value={courseDistance()} onChange={(event) => void chooseCourseDistance(event.currentTarget.value === 'any' ? 'any' : Number(event.currentTarget.value))}><option value="any">Any distance</option><option value="5">Within 5 miles</option><option value="10">Within 10 miles</option><option value="15">Within 15 miles</option><option value="25">Within 25 miles</option></select></label></div><Show when={locationError()}><p class="course-filter-error">{locationError()}</p></Show><input class="course-filter-search" type="search" value={courseFilterQuery()} onInput={(event) => setCourseFilterQuery(event.currentTarget.value)} placeholder="Find a course or town" aria-label="Find a course or town" /><div class="course-filter-actions"><button type="button" onClick={() => setSelectedCourseIds(null)}>Select all</button><button type="button" onClick={() => setSelectedCourseIds([])}>Clear all</button><button type="button" onClick={() => setShowUnavailable(!showUnavailable())}>{showUnavailable() ? 'Hide unavailable' : 'Show unavailable'}</button><button type="button" onClick={() => { setSelectedCourseIds(null); setCourseDistance(25); setCourseSort('availability'); setShowUnavailable(true); setLocationError('') }}>Reset</button></div><div class="course-filter-list"><For each={filterableCourses()}>{(course) => <label><input type="checkbox" checked={selectedCourseIds() === null || selectedCourseIds()!.includes(course.id)} onChange={() => toggleCourse(course.id)} /><span class="course-avatar compact"><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></span><span><strong>{course.name}</strong><small>{course.city}, {course.state}<Show when={distanceFor(course) !== undefined}> · {distanceFor(course)!.toFixed(1)} mi</Show></small></span></label>}</For></div></section></Show></div></Show></div>
         <div class="results-tools"><span class="refresh-status" classList={{ failed: refreshFailed() }}>{updateLabel()}</span><div class="results-view-switch" role="group" aria-label="Results view"><button type="button" classList={{ active: resultsView() === 'timeline' }} aria-pressed={resultsView() === 'timeline'} onClick={() => setResultsView('timeline')}>Timeline</button><button type="button" classList={{ active: resultsView() === 'map' }} aria-pressed={resultsView() === 'map'} onClick={() => setResultsView('map')}>Map</button></div></div>
       </div>
       <Show when={error()}>{(message) => <div class="empty-state standalone">{message()}</div>}</Show>
@@ -833,7 +834,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div></Show>
-      <Show when={!loading() && !error() && resultCourses().length === 0}><div class="no-results"><h3>No courses were available to search.</h3></div></Show>
+      <Show when={!loading() && !error() && resultCourses().length === 0}><div class="no-results"><h3>No nearby courses have matching tee times.</h3><Show when={!selectedEntryCourse()}><button type="button" onClick={() => { setCourseDistance('any'); setShowUnavailable(true) }}>Show every searched course</button></Show></div></Show>
     </section>
     </Show>
   </main><Show when={infoCourse()}>{(course) => <CourseInfoModal course={course()} onClose={() => setInfoCourse(null)} />}</Show><Show when={selectedTeeTime()}>{(selection) => { const value = selection(); return <div class="tee-time-detail-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setSelectedTeeTime(null) }}><section class="tee-time-detail-sheet" role="dialog" aria-modal="true" aria-labelledby="tee-time-detail-title"><header classList={{ 'has-image': Boolean(value.course.headerImageUrl) }} style={value.course.headerImageUrl ? { 'background-image': `linear-gradient(180deg, rgb(8 18 12 / 12%) 0%, rgb(8 18 12 / 84%) 100%), url("${value.course.headerImageUrl}")` } : undefined}><div class="course-avatar"><Show when={value.course.logoUrl} fallback={value.course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div><div><h2 id="tee-time-detail-title">{value.course.name}</h2><p>{value.course.city}, {value.course.state}</p></div><button type="button" onClick={() => setSelectedTeeTime(null)} aria-label="Close tee-time details">×</button></header><div class="tee-time-detail-content"><strong class="tee-time-detail-time">{value.tee.time}</strong><span>{new Date(`${value.tee.date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span><div class="tee-time-detail-facts"><Show when={value.price !== undefined}><span><b>{String.fromCharCode(36)}{value.price}</b>Price</span></Show><span><b>{value.holes}</b>Holes</span><span><b>{value.tee.availableSpots ?? '—'}</b>{value.tee.availableSpots === 1 ? 'Spot' : 'Spots'}</span></div><div class="tee-time-weather" aria-live="polite"><Show when={!teeTimeWeatherLoading()} fallback={<div class="tee-time-weather-loading"><span class="loading-spinner" />Checking the forecast…</div>}><Show when={selectedForecast()} fallback={<Show when={teeTimeWeatherUnavailable()}><p class="tee-time-weather-unavailable">Forecast unavailable for this tee time.</p></Show>}>{(forecast) => <><div class="tee-time-weather-main"><span class="tee-time-weather-icon" aria-hidden="true">{forecast().condition.icon}</span><div><strong>{forecast().condition.label} · {forecast().teeOff.temperature !== undefined ? `${Math.round(forecast().teeOff.temperature!)}°F` : 'Temperature unavailable'}</strong><span>At tee-off<Show when={forecast().teeOff.apparentTemperature !== undefined}> · feels like {Math.round(forecast().teeOff.apparentTemperature!)}°</Show></span></div></div><p><b>During your round:</b> <Show when={forecast().low !== undefined && forecast().high !== undefined}>{forecast().low === forecast().high ? `${forecast().low}°F` : `${forecast().low}–${forecast().high}°F`} · </Show><Show when={forecast().rain !== undefined}>{forecast().rain}% rain · </Show><Show when={forecast().windLow !== undefined && forecast().windHigh !== undefined}>wind {forecast().windLow === forecast().windHigh ? forecast().windLow : `${forecast().windLow}–${forecast().windHigh}`} mph</Show><Show when={forecast().gust !== undefined}> · gusts {forecast().gust} mph</Show></p></>}</Show></Show></div></div><footer><a href={value.tee.bookingUrl} target="_blank" rel="noreferrer">Continue to booking</a></footer></section></div> }}</Show></div>

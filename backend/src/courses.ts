@@ -78,6 +78,9 @@ export interface CourseConfig {
     siteId: number
     terminalId: number
   }
+  teeOps?: {
+    slug: string
+  }
   notes?: string
 }
 
@@ -224,6 +227,18 @@ interface CpsGolfTeeTime {
 interface CpsGolfResponse {
   isSuccess: boolean
   content?: CpsGolfTeeTime[] | { messageKey?: string; messageDetail?: string }
+}
+
+interface TeeOpsTeeTime {
+  id: number
+  teeTime: string
+  scheduleDate: string
+  numPlayers: number
+  numHoles: number
+  numPrice: number
+  status: string
+  bookedPlayers: number
+  turn_reserved_seats?: number
 }
 
 const supremeGolfApiKey = '61d982eb-185b-4146-8c5c-3a9e9c7197a0'
@@ -439,6 +454,7 @@ export const courses: CourseConfig[] = [
     name: 'Four Oaks Country Club',
     city: 'Dracut',
     state: 'MA',
+    status: 'unsupported',
     bookingSystem: 'CPS Golf',
     bookingUrl: 'https://fouroaks.cps.golf/onlineresweb/search-teetime?TeeOffTimeMin=0&TeeOffTimeMax=23',
     websiteUrl: 'https://www.fouroakscountryclub.com/',
@@ -462,7 +478,29 @@ export const courses: CourseConfig[] = [
       siteId: 1,
       terminalId: 3,
     },
-    notes: 'Public CPS Golf tee times with 9- and 18-hole pricing.',
+    notes: 'Temporarily hidden because Cloudflare blocks server-side access to the CPS Golf API. Public CPS Golf tee times previously included 9- and 18-hole pricing.',
+  },
+  {
+    id: 'the-jack-golf-course',
+    name: 'The Jack Golf Course',
+    city: 'Woodstock',
+    state: 'NH',
+    bookingSystem: 'TeeOps',
+    bookingUrl: 'https://teeopsgolf.com/booking/the-jack-golf-course',
+    websiteUrl: 'https://www.thejackgolfcourse.com/',
+    authType: 'none',
+    latitude: 43.952013,
+    longitude: -71.6764685,
+    logoUrl: '/course-logos/the-jack.png',
+    headerImageUrl: '/course-headers/the-jack.jpg',
+    details: {
+      type: 'Public', holes: 18, par: 70,
+      address: '1701 Daniel Webster Highway, Woodstock, NH 03293', phone: '(603) 745-7401',
+      description: 'An 18-hole course running alongside the Pemigewasset River in the White Mountains.',
+      amenities: ['Bar and grill', 'Pro shop', 'Stay-and-play packages'],
+    },
+    teeOps: { slug: 'the-jack-golf-course' },
+    notes: 'Public TeeOps availability. Customer booking fields returned by the source API are intentionally discarded.',
   },
   {
     id: 'souhegan-woods-golf-club',
@@ -1295,6 +1333,38 @@ async function getClubCaddieTeeTimes(course: CourseConfig, date: string): Promis
   }).get() as Array<TeeTime | undefined>).filter((teeTime): teeTime is TeeTime => Boolean(teeTime))
 }
 
+async function getTeeOpsTeeTimes(course: CourseConfig, date: string): Promise<TeeTime[]> {
+  if (!course.teeOps) return []
+
+  const params = new URLSearchParams({ date, course: course.teeOps.slug })
+  const response = await fetch(`https://teeopsgolf.com/api/tee_times?${params}`)
+  if (!response.ok) throw new Error(`TeeOps request failed with ${response.status}`)
+  const data = await response.json() as TeeOpsTeeTime[]
+  if (!Array.isArray(data)) return []
+
+  return data.flatMap((teeTime) => {
+    const availableSpots = Math.max(0, Math.min(4, teeTime.numPlayers - teeTime.bookedPlayers - (teeTime.turn_reserved_seats || 0)))
+    const timeMatch = teeTime.teeTime.match(/^(\d{1,2}):(\d{2})/)
+    if (teeTime.status !== 'OPEN' || availableSpots === 0 || !timeMatch) return []
+    const hour = Number(timeMatch[1])
+    const holes = teeTime.numHoles === 9 ? 9 : 18
+
+    return [{
+      id: `${course.id}-${date}-${teeTime.id}`,
+      courseId: course.id,
+      courseName: course.name,
+      time: `${hour % 12 || 12}:${timeMatch[2]} ${hour >= 12 ? 'PM' : 'AM'}`,
+      date,
+      holes,
+      price: typeof teeTime.numPrice === 'number' ? teeTime.numPrice : undefined,
+      availableSpots,
+      bookingUrl: course.bookingUrl,
+      authRequired: false,
+      authType: course.authType,
+    } satisfies TeeTime]
+  })
+}
+
 async function getCpsGolfTeeTimes(course: CourseConfig, date: string): Promise<TeeTime[]> {
   if (!course.cpsGolf) return []
 
@@ -1415,6 +1485,10 @@ export async function getTeeTimesForCourse(course: CourseConfig, date: string): 
 
   if (course.bookingSystem === 'CPS Golf') {
     return getCpsGolfTeeTimes(course, date)
+  }
+
+  if (course.bookingSystem === 'TeeOps') {
+    return getTeeOpsTeeTimes(course, date)
   }
 
   return []

@@ -151,6 +151,7 @@ export default function CourseMap(props: CourseMapProps) {
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false,
+        zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
         clickableIcons: false,
         gestureHandling: 'greedy'
       })
@@ -278,7 +279,7 @@ export default function CourseMap(props: CourseMapProps) {
 
   return <div class="course-map-board" classList={{ 'course-map-fullscreen': mapFullscreen() }}>
     <div class="course-map-canvas" ref={container} aria-label="Map of golf courses" />
-    <Show when={isToday()}><button type="button" class="course-map-radar-toggle" classList={{ active: radarEnabled() }} onClick={() => setRadarEnabled(!radarEnabled())} aria-pressed={radarEnabled()} title="Toggle current Doppler radar"><span aria-hidden="true">◉</span> Radar</button></Show>
+    <Show when={isToday()}><button type="button" class="course-map-radar-toggle" classList={{ active: radarEnabled() }} onClick={() => setRadarEnabled(!radarEnabled())} aria-pressed={radarEnabled()} title="Toggle current Doppler radar"><span aria-hidden="true">◉</span> Current Radar</button></Show>
     <Show when={radarEnabled() && isToday()}><a class="course-map-radar-credit" href="https://radar.weather.gov/" target="_blank" rel="noreferrer">Current radar · NOAA/NWS</a></Show>
     <button type="button" class="course-map-fullscreen-toggle" onClick={() => setMapFullscreen(!mapFullscreen())} aria-label={mapFullscreen() ? 'Exit fullscreen map' : 'Open fullscreen map'} title={mapFullscreen() ? 'Exit fullscreen' : 'Fullscreen map'}><svg viewBox="0 0 24 24" aria-hidden="true"><Show when={mapFullscreen()} fallback={<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />}><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5" /></Show></svg></button>
     <Show when={mapError()}>{(message) => <div class="course-map-empty">{message()}</div>}</Show>
