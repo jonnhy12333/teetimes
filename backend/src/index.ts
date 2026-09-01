@@ -11,7 +11,7 @@ const app = express()
 const port = process.env.PORT || 5000
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
 const weatherCache = new Map<string, { expiresAt: number; hourly: unknown[] }>()
-const weatherCacheDurationMs = 10 * 60 * 1000
+const weatherCacheDurationMs = 30 * 60 * 1000
 const developmentTeeTimeCacheEnabled = process.env.DEV_TEE_TIME_CACHE === 'true' || (process.env.DEV_TEE_TIME_CACHE !== 'false' && process.env.npm_lifecycle_event === 'dev')
 const developmentTeeTimeCacheDurationMs = Number(process.env.DEV_TEE_TIME_CACHE_TTL_MS) || 60 * 60 * 1000
 const developmentTeeTimeCacheDirectory = resolve(process.cwd(), '.dev-cache', 'tee-times')
@@ -129,7 +129,7 @@ app.get('/api/courses/:id/weather', async (req, res) => {
     const params = new URLSearchParams({
       latitude: String(course.latitude),
       longitude: String(course.longitude),
-      hourly: 'temperature_2m,weather_code,wind_speed_10m,precipitation_probability',
+      hourly: 'temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,precipitation_probability',
       temperature_unit: 'fahrenheit',
       wind_speed_unit: 'mph',
       timezone: 'America/New_York',
@@ -147,16 +147,20 @@ app.get('/api/courses/:id/weather', async (req, res) => {
       hourly?: {
         time?: string[]
         temperature_2m?: number[]
+        apparent_temperature?: number[]
         weather_code?: number[]
         wind_speed_10m?: number[]
+        wind_gusts_10m?: number[]
         precipitation_probability?: number[]
       }
     }
     const hourly = (data.hourly?.time || []).map((time, index) => ({
       time,
       temperature: data.hourly?.temperature_2m?.[index],
+      apparentTemperature: data.hourly?.apparent_temperature?.[index],
       weatherCode: data.hourly?.weather_code?.[index],
       windSpeed: data.hourly?.wind_speed_10m?.[index],
+      windGust: data.hourly?.wind_gusts_10m?.[index],
       precipitationProbability: data.hourly?.precipitation_probability?.[index],
     }))
 

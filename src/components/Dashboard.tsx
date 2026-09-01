@@ -10,6 +10,7 @@ interface CourseDetails { type?: string; holes?: number; par?: number; yardageMi
 export interface Course { id: string; name: string; city: string; state: string; bookingUrl: string; websiteUrl?: string; status?: 'active' | 'unsupported'; latitude?: number; longitude?: number; logoUrl?: string; headerImageUrl?: string; details?: CourseDetails }
 export interface TeeTime { id: string; courseId: string; time: string; date: string; holes: number | string; options?: Array<{ holes: 9 | 18; price?: number }>; price?: number; availableSpots?: number; bookingUrl: string }
 interface SelectedTeeTime { course: Course; tee: TeeTime; price?: number; holes: number | string }
+interface WeatherHour { time: string; temperature?: number; apparentTemperature?: number; weatherCode?: number; windSpeed?: number; windGust?: number; precipitationProbability?: number }
 type PlayerFilter = 'any' | 2 | 3 | 4
 type HoleFilter = 'any' | 9 | 18
 type TimeRange = [number, number]
@@ -49,6 +50,22 @@ function playNowTimeRange(): TimeRange {
   return [start, Math.min(start + 3 * 60, timeMaximum)]
 }
 
+function timeRangeFromParams(params: URLSearchParams, day: string): TimeRange {
+  const parse = (value: string | null) => {
+    const match = value?.match(/^(\d{1,2}):(\d{2})$/)
+    if (!match) return undefined
+    const minutes = Number(match[1]) * 60 + Number(match[2])
+    return Number(match[2]) < 60 && minutes >= timeMinimum && minutes <= timeMaximum ? minutes : undefined
+  }
+  const start = parse(params.get('start'))
+  const end = parse(params.get('end'))
+  return start !== undefined && end !== undefined && end > start ? [start, end] : automaticTimeRange(day)
+}
+
+function timeRangeParam(value: number) {
+  return `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`
+}
+
 function initialSearchState() {
   const params = new URLSearchParams(window.location.search)
   const shouldSearch = ['date', 'players', 'holes', 'course'].some((key) => params.has(key))
@@ -59,8 +76,9 @@ function initialSearchState() {
     day,
     players: playerFilters.includes(playerParam as PlayerFilter) ? playerParam as PlayerFilter : 'any' as PlayerFilter,
     holes: holeFilters.includes(holeParam as HoleFilter) ? holeParam as HoleFilter : 'any' as HoleFilter,
-    timeRange: automaticTimeRange(day),
+    timeRange: timeRangeFromParams(params, day),
     course: params.get('course') || '',
+    resultsView: params.get('view') === 'map' ? 'map' as ResultsView : 'timeline' as ResultsView,
     shouldSearch,
   }
 }
@@ -80,6 +98,25 @@ function formatMinutes(value: number) {
   const hour = Math.floor(value / 60)
   const minutes = value % 60
   return `${hour % 12 || 12}:${String(minutes).padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`
+}
+
+function weatherCondition(code?: number) {
+  if (code === 0) return { icon: '☀️', label: 'Clear' }
+  if (code === 1) return { icon: '🌤️', label: 'Mostly clear' }
+  if (code === 2) return { icon: '⛅', label: 'Partly cloudy' }
+  if (code === 3) return { icon: '☁️', label: 'Cloudy' }
+  if (code === 45 || code === 48) return { icon: '🌫️', label: 'Foggy' }
+  if (code !== undefined && code >= 51 && code <= 67) return { icon: '🌧️', label: 'Rain' }
+  if (code !== undefined && code >= 71 && code <= 77) return { icon: '🌨️', label: 'Snow' }
+  if (code !== undefined && code >= 80 && code <= 82) return { icon: '🌦️', label: 'Showers' }
+  if (code !== undefined && code >= 85 && code <= 86) return { icon: '🌨️', label: 'Snow showers' }
+  if (code !== undefined && code >= 95) return { icon: '⛈️', label: 'Thunderstorms' }
+  return { icon: '🌡️', label: 'Forecast' }
+}
+
+function weatherTimeValue(value: string) {
+  const match = value.match(/T(\d{2}):(\d{2})/)
+  return match ? Number(match[1]) * 60 + Number(match[2]) : Number.MAX_SAFE_INTEGER
 }
 
 const timelineDefaultScale = 5.5
@@ -248,7 +285,10 @@ export default function Dashboard() {
   const [timelineFullscreen, setTimelineFullscreen] = createSignal(false)
   const [courseRailCollapsed, setCourseRailCollapsed] = createSignal(storedCourseRail === null ? window.matchMedia('(max-width: 700px)').matches : storedCourseRail === 'true')
   const [selectedTeeTime, setSelectedTeeTime] = createSignal<SelectedTeeTime | null>(null)
-  const [resultsView, setResultsView] = createSignal<ResultsView>('timeline')
+  const [teeTimeWeather, setTeeTimeWeather] = createSignal<WeatherHour[]>([])
+  const [teeTimeWeatherLoading, setTeeTimeWeatherLoading] = createSignal(false)
+  const [teeTimeWeatherUnavailable, setTeeTimeWeatherUnavailable] = createSignal(false)
+  const [resultsView, setResultsView] = createSignal<ResultsView>(initialSearch.resultsView)
   let loadRequest = 0
   let timelineScroller!: HTMLDivElement
   let timelineDragStartX = 0
@@ -375,6 +415,65 @@ export default function Dashboard() {
     showTeeTimeDetails(course, tee, price, shownHoles)
   }
 
+  createEffect(() => {
+    const selection = selectedTeeTime()
+    setTeeTimeWeather([])
+    setTeeTimeWeatherUnavailable(false)
+    if (!selection || selection.course.latitude === undefined || selection.course.longitude === undefined) {
+      setTeeTimeWeatherLoading(false)
+      return
+    }
+    const controller = new AbortController()
+    setTeeTimeWeatherLoading(true)
+    void fetch(`${apiBaseUrl}/api/courses/${selection.course.id}/weather?date=${encodeURIComponent(selection.tee.date)}`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Weather request failed with ${response.status}`)
+        return response.json() as Promise<{ hourly?: WeatherHour[]; unavailable?: boolean }>
+      })
+      .then((data) => {
+        if (controller.signal.aborted) return
+        const hourly = Array.isArray(data.hourly) ? data.hourly : []
+        setTeeTimeWeather(hourly)
+        setTeeTimeWeatherUnavailable(Boolean(data.unavailable) || hourly.length === 0)
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          console.warn('Could not load tee-time weather', error)
+          setTeeTimeWeatherUnavailable(true)
+        }
+      })
+      .finally(() => { if (!controller.signal.aborted) setTeeTimeWeatherLoading(false) })
+    onCleanup(() => controller.abort())
+  })
+
+  const selectedForecast = createMemo(() => {
+    const selection = selectedTeeTime()
+    const hours = teeTimeWeather()
+    if (!selection || !hours.length) return undefined
+    const teeMinutes = timeValue(selection.tee.time)
+    const teeOff = hours.reduce((closest, hour) => Math.abs(weatherTimeValue(hour.time) - teeMinutes) < Math.abs(weatherTimeValue(closest.time) - teeMinutes) ? hour : closest)
+    const roundHours = hours.filter((hour) => {
+      const minutes = weatherTimeValue(hour.time)
+      return minutes >= weatherTimeValue(teeOff.time) && minutes <= teeMinutes + 4 * 60
+    })
+    const during = roundHours.length ? roundHours : [teeOff]
+    const values = (key: keyof WeatherHour) => during.map((hour) => hour[key]).filter((value): value is number => typeof value === 'number')
+    const temperatures = values('temperature')
+    const rain = values('precipitationProbability')
+    const wind = values('windSpeed')
+    const gusts = values('windGust')
+    return {
+      teeOff,
+      condition: weatherCondition(teeOff.weatherCode),
+      low: temperatures.length ? Math.round(Math.min(...temperatures)) : undefined,
+      high: temperatures.length ? Math.round(Math.max(...temperatures)) : undefined,
+      rain: rain.length ? Math.round(Math.max(...rain)) : undefined,
+      windLow: wind.length ? Math.round(Math.min(...wind)) : undefined,
+      windHigh: wind.length ? Math.round(Math.max(...wind)) : undefined,
+      gust: gusts.length ? Math.round(Math.max(...gusts)) : undefined,
+    }
+  })
+
   createEffect(() => { document.documentElement.dataset.theme = theme(); localStorage.setItem('theme', theme()) })
   createEffect(() => { localStorage.setItem(courseRailKey, String(courseRailCollapsed())) })
   createEffect(() => { localStorage.setItem(courseFilterKey, JSON.stringify({ selected: selectedCourseIds(), distance: courseDistance(), sort: courseSort() })) })
@@ -391,6 +490,9 @@ export default function Dashboard() {
     if (players() !== 'any') params.set('players', String(players()))
     if (holes() !== 'any') params.set('holes', String(holes()))
     if (selectedEntryCourse()) params.set('course', selectedEntryCourse())
+    params.set('start', timeRangeParam(timeRange()[0]))
+    params.set('end', timeRangeParam(timeRange()[1]))
+    if (resultsView() === 'map') params.set('view', 'map')
     const nextUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`
     window.history.replaceState(null, '', nextUrl)
   })
@@ -588,8 +690,9 @@ export default function Dashboard() {
       setDay(restored.day)
       setPlayers(restored.players)
       setHoles(restored.holes)
-      setTimeRange(automaticTimeRange(restored.day))
+      setTimeRange(restored.timeRange)
       setSelectedEntryCourse(restored.course)
+      setResultsView(restored.resultsView)
       if (restored.shouldSearch && (dateChanged || !wasActive)) void loadSearch(restored.day)
       if (!restored.shouldSearch) { setTeeTimes([]); setLoading(false); setError(null) }
     }
@@ -704,5 +807,5 @@ export default function Dashboard() {
       <Show when={!loading() && !error() && resultCourses().length === 0}><div class="no-results"><h3>No courses were available to search.</h3></div></Show>
     </section>
     </Show>
-  </main><Show when={infoCourse()}>{(course) => <CourseInfoModal course={course()} onClose={() => setInfoCourse(null)} />}</Show><Show when={selectedTeeTime()}>{(selection) => { const value = selection(); return <div class="tee-time-detail-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setSelectedTeeTime(null) }}><section class="tee-time-detail-sheet" role="dialog" aria-modal="true" aria-labelledby="tee-time-detail-title"><header classList={{ 'has-image': Boolean(value.course.headerImageUrl) }} style={value.course.headerImageUrl ? { 'background-image': `linear-gradient(180deg, rgb(8 18 12 / 12%) 0%, rgb(8 18 12 / 84%) 100%), url("${value.course.headerImageUrl}")` } : undefined}><div class="course-avatar"><Show when={value.course.logoUrl} fallback={value.course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div><div><h2 id="tee-time-detail-title">{value.course.name}</h2><p>{value.course.city}, {value.course.state}</p></div><button type="button" onClick={() => setSelectedTeeTime(null)} aria-label="Close tee-time details">×</button></header><div class="tee-time-detail-content"><strong class="tee-time-detail-time">{value.tee.time}</strong><span>{new Date(`${value.tee.date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span><div class="tee-time-detail-facts"><Show when={value.price !== undefined}><span><b>{String.fromCharCode(36)}{value.price}</b>Price</span></Show><span><b>{value.holes}</b>Holes</span><span><b>{value.tee.availableSpots ?? '—'}</b>{value.tee.availableSpots === 1 ? 'Spot' : 'Spots'}</span></div></div><footer><a href={value.tee.bookingUrl} target="_blank" rel="noreferrer">Continue to booking</a></footer></section></div> }}</Show></div>
+  </main><Show when={infoCourse()}>{(course) => <CourseInfoModal course={course()} onClose={() => setInfoCourse(null)} />}</Show><Show when={selectedTeeTime()}>{(selection) => { const value = selection(); return <div class="tee-time-detail-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setSelectedTeeTime(null) }}><section class="tee-time-detail-sheet" role="dialog" aria-modal="true" aria-labelledby="tee-time-detail-title"><header classList={{ 'has-image': Boolean(value.course.headerImageUrl) }} style={value.course.headerImageUrl ? { 'background-image': `linear-gradient(180deg, rgb(8 18 12 / 12%) 0%, rgb(8 18 12 / 84%) 100%), url("${value.course.headerImageUrl}")` } : undefined}><div class="course-avatar"><Show when={value.course.logoUrl} fallback={value.course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></div><div><h2 id="tee-time-detail-title">{value.course.name}</h2><p>{value.course.city}, {value.course.state}</p></div><button type="button" onClick={() => setSelectedTeeTime(null)} aria-label="Close tee-time details">×</button></header><div class="tee-time-detail-content"><strong class="tee-time-detail-time">{value.tee.time}</strong><span>{new Date(`${value.tee.date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span><div class="tee-time-detail-facts"><Show when={value.price !== undefined}><span><b>{String.fromCharCode(36)}{value.price}</b>Price</span></Show><span><b>{value.holes}</b>Holes</span><span><b>{value.tee.availableSpots ?? '—'}</b>{value.tee.availableSpots === 1 ? 'Spot' : 'Spots'}</span></div><div class="tee-time-weather" aria-live="polite"><Show when={!teeTimeWeatherLoading()} fallback={<div class="tee-time-weather-loading"><span class="loading-spinner" />Checking the forecast…</div>}><Show when={selectedForecast()} fallback={<Show when={teeTimeWeatherUnavailable()}><p class="tee-time-weather-unavailable">Forecast unavailable for this tee time.</p></Show>}>{(forecast) => <><div class="tee-time-weather-main"><span class="tee-time-weather-icon" aria-hidden="true">{forecast().condition.icon}</span><div><strong>{forecast().condition.label} · {forecast().teeOff.temperature !== undefined ? `${Math.round(forecast().teeOff.temperature!)}°F` : 'Temperature unavailable'}</strong><span>At tee-off<Show when={forecast().teeOff.apparentTemperature !== undefined}> · feels like {Math.round(forecast().teeOff.apparentTemperature!)}°</Show></span></div></div><p><b>During your round:</b> <Show when={forecast().low !== undefined && forecast().high !== undefined}>{forecast().low === forecast().high ? `${forecast().low}°F` : `${forecast().low}–${forecast().high}°F`} · </Show><Show when={forecast().rain !== undefined}>{forecast().rain}% rain · </Show><Show when={forecast().windLow !== undefined && forecast().windHigh !== undefined}>wind {forecast().windLow === forecast().windHigh ? forecast().windLow : `${forecast().windLow}–${forecast().windHigh}`} mph</Show><Show when={forecast().gust !== undefined}> · gusts {forecast().gust} mph</Show></p></>}</Show></Show></div></div><footer><a href={value.tee.bookingUrl} target="_blank" rel="noreferrer">Continue to booking</a></footer></section></div> }}</Show></div>
 }

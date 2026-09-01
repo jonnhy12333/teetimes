@@ -1409,6 +1409,16 @@ a.weather-chip:focus-visible {
 .tee-time-detail-facts { display: flex; gap: 8px; justify-content: center; margin-top: 18px; }
 .tee-time-detail-facts > span { background: var(--panel-muted); border: 1px solid var(--border); border-radius: 9px; color: var(--muted); display: flex; flex: 1; flex-direction: column; font-size: 10px; max-width: 120px; padding: 9px 7px; text-transform: uppercase; }
 .tee-time-detail-facts b { color: var(--text); font-size: 15px; margin-bottom: 2px; text-transform: none; }
+.tee-time-weather { background: color-mix(in srgb, var(--panel-muted) 72%, var(--panel)); border: 1px solid var(--border); border-radius: 11px; margin-top: 14px; min-height: 66px; padding: 11px 12px; text-align: left; }
+.tee-time-weather-main { align-items: center; display: flex; gap: 10px; }
+.tee-time-weather-icon { font-size: 27px; line-height: 1; }
+.tee-time-weather-main > div { min-width: 0; }
+.tee-time-weather-main strong { color: var(--text); display: block; font-size: 13px; }
+.tee-time-weather-main span:last-child { color: var(--muted); display: block; font-size: 10px; margin-top: 2px; }
+.tee-time-weather > p { color: var(--muted); font-size: 11px; line-height: 1.45; margin-top: 9px; }
+.tee-time-weather > p b { color: var(--text); }
+.tee-time-weather-loading { align-items: center; color: var(--muted); display: flex; font-size: 11px; gap: 8px; justify-content: center; min-height: 42px; }
+.tee-time-weather-unavailable { margin: 0 !important; text-align: center; }
 .tee-time-detail-sheet > footer { border-top: 1px solid var(--divider); padding: 12px 16px max(12px, env(safe-area-inset-bottom)); }
 .tee-time-detail-sheet > footer a { align-items: center; background: var(--accent); border-radius: 9px; color: var(--accent-contrast); display: flex; font-size: 14px; font-weight: 800; justify-content: center; min-height: 46px; text-decoration: none; }
 @media (min-width: 701px) {
@@ -1594,6 +1604,7 @@ a.weather-chip:focus-visible {
   .timeline-floating-controls .timeline-zoom-controls { display: none; }
   .timeline-fullscreen .timeline-floating-controls .timeline-zoom-controls { display: inline-flex; }
   .course-map-board, .course-map-canvas { min-height: 420px; }
+  .course-map-fullscreen-toggle { bottom: auto; top: 12px; }
   .course-map-panel { border: 0; border-radius: 16px 16px 0 0; bottom: 0; left: 0; max-height: 62%; right: 0; top: auto; width: 100%; }
   .course-map-panel > header.has-image { min-height: 100px; padding-top: 38px; }
   .course-map-time-list button { align-items: center; }
