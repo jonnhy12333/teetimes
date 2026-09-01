@@ -5,6 +5,7 @@ import type { Course, TeeTime } from './Dashboard'
 type HoleFilter = 'any' | 9 | 18
 
 interface CourseMapProps {
+  selectedDate: string
   courses: Course[]
   timesByCourse: Record<string, TeeTime[]>
   selectedHoles: HoleFilter
@@ -66,21 +67,46 @@ function selectedMarkerIcon(fillColor: string): google.maps.Icon {
   }
 }
 
+function radarTileUrl(coord: google.maps.Point, zoom: number) {
+  const tileCount = 2 ** zoom
+  const x = ((coord.x % tileCount) + tileCount) % tileCount
+  if (coord.y < 0 || coord.y >= tileCount) return ''
+  const worldExtent = 20037508.342789244
+  const tileSpan = worldExtent * 2 / tileCount
+  const xmin = -worldExtent + x * tileSpan
+  const xmax = xmin + tileSpan
+  const ymax = worldExtent - coord.y * tileSpan
+  const ymin = ymax - tileSpan
+  const params = new URLSearchParams({
+    bbox: `${xmin},${ymin},${xmax},${ymax}`,
+    bboxSR: '3857',
+    imageSR: '3857',
+    size: '256,256',
+    format: 'png32',
+    interpolation: 'RSP_CubicConvolution',
+    f: 'image',
+  })
+  return `https://mapservices.weather.noaa.gov/eventdriven/rest/services/radar/radar_base_reflectivity_time/ImageServer/exportImage?${params}`
+}
+
 export default function CourseMap(props: CourseMapProps) {
   const [mapReady, setMapReady] = createSignal(false)
   const [mapError, setMapError] = createSignal('')
   const [mapsLibrary, setMapsLibrary] = createSignal<google.maps.MapsLibrary | null>(null)
   const [selectedCourseId, setSelectedCourseId] = createSignal<string | null>(null)
   const [mapFullscreen, setMapFullscreen] = createSignal(false)
+  const [radarEnabled, setRadarEnabled] = createSignal(false)
   let container!: HTMLDivElement
   let map: google.maps.Map | undefined
   let mapClickListener: google.maps.MapsEventListener | undefined
   const markers = new Map<string, google.maps.Marker>()
   let locationMarker: google.maps.Marker | undefined
+  let radarOverlay: google.maps.ImageMapType | undefined
   let fittedCourseKey = ''
 
   const selectedCourse = createMemo(() => props.courses.find((course) => course.id === selectedCourseId()))
   const selectedTimes = createMemo(() => selectedCourse() ? props.timesByCourse[selectedCourse()!.id] || [] : [])
+  const isToday = createMemo(() => props.selectedDate === new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()))
 
   const chooseCourse = (course: Course) => {
     setSelectedCourseId(course.id)
@@ -100,6 +126,11 @@ export default function CourseMap(props: CourseMapProps) {
       markers.clear()
       locationMarker?.setMap(null)
       locationMarker = undefined
+      if (map && radarOverlay) {
+        const radarIndex = map.overlayMapTypes.getArray().indexOf(radarOverlay)
+        if (radarIndex >= 0) map.overlayMapTypes.removeAt(radarIndex)
+      }
+      radarOverlay = undefined
       mapClickListener?.remove()
       mapClickListener = undefined
       map = undefined
@@ -139,6 +170,29 @@ export default function CourseMap(props: CourseMapProps) {
       google.maps.event.trigger(map, 'resize')
       if (center) map.setCenter(center)
     })
+  })
+
+  createEffect(() => {
+    const enabled = radarEnabled() && isToday()
+    const library = mapsLibrary()
+    if (!mapReady() || !map || !library) return
+    if (!radarOverlay) {
+      radarOverlay = new library.ImageMapType({
+        getTileUrl: radarTileUrl,
+        maxZoom: 18,
+        minZoom: 3,
+        opacity: 0.62,
+        tileSize: new google.maps.Size(256, 256),
+      })
+    }
+    const radarIndex = map.overlayMapTypes.getArray().indexOf(radarOverlay)
+    if (enabled && radarIndex < 0) map.overlayMapTypes.push(radarOverlay)
+    if (!enabled && radarIndex >= 0) map.overlayMapTypes.removeAt(radarIndex)
+  })
+
+  createEffect(() => {
+    if (isToday()) return
+    setRadarEnabled(false)
   })
 
   createEffect(() => {
@@ -224,6 +278,8 @@ export default function CourseMap(props: CourseMapProps) {
 
   return <div class="course-map-board" classList={{ 'course-map-fullscreen': mapFullscreen() }}>
     <div class="course-map-canvas" ref={container} aria-label="Map of golf courses" />
+    <Show when={isToday()}><button type="button" class="course-map-radar-toggle" classList={{ active: radarEnabled() }} onClick={() => setRadarEnabled(!radarEnabled())} aria-pressed={radarEnabled()} title="Toggle current Doppler radar"><span aria-hidden="true">◉</span> Radar</button></Show>
+    <Show when={radarEnabled() && isToday()}><a class="course-map-radar-credit" href="https://radar.weather.gov/" target="_blank" rel="noreferrer">Current radar · NOAA/NWS</a></Show>
     <button type="button" class="course-map-fullscreen-toggle" onClick={() => setMapFullscreen(!mapFullscreen())} aria-label={mapFullscreen() ? 'Exit fullscreen map' : 'Open fullscreen map'} title={mapFullscreen() ? 'Exit fullscreen' : 'Fullscreen map'}><svg viewBox="0 0 24 24" aria-hidden="true"><Show when={mapFullscreen()} fallback={<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />}><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5" /></Show></svg></button>
     <Show when={mapError()}>{(message) => <div class="course-map-empty">{message()}</div>}</Show>
     <Show when={props.courses.every((course) => course.latitude === undefined || course.longitude === undefined)}><div class="course-map-empty">No course locations are available.</div></Show>

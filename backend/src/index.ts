@@ -16,6 +16,24 @@ const developmentTeeTimeCacheEnabled = process.env.DEV_TEE_TIME_CACHE === 'true'
 const developmentTeeTimeCacheDurationMs = Number(process.env.DEV_TEE_TIME_CACHE_TTL_MS) || 60 * 60 * 1000
 const developmentTeeTimeCacheDirectory = resolve(process.cwd(), '.dev-cache', 'tee-times')
 const developmentTeeTimeCachePath = (courseId: string, date: string) => resolve(developmentTeeTimeCacheDirectory, `${courseId}-${date}`.replace(/[^a-zA-Z0-9._-]/g, '_') + '.json')
+const wait = (milliseconds: number) => new Promise((resolveWait) => setTimeout(resolveWait, milliseconds))
+
+async function fetchWeather(url: string) {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(url)
+      if (response.ok) return response
+      const responseText = await response.text()
+      lastError = new Error(`Open-Meteo request failed with ${response.status}: ${responseText.slice(0, 300)}`)
+      if (response.status !== 429 && response.status < 500) break
+    } catch (error) {
+      lastError = error
+    }
+    if (attempt === 0) await wait(350)
+  }
+  throw lastError instanceof Error ? lastError : new Error('Open-Meteo request failed')
+}
 
 async function readDevelopmentTeeTimeCache(courseId: string, date: string) {
   if (!developmentTeeTimeCacheEnabled) return undefined
@@ -136,12 +154,7 @@ app.get('/api/courses/:id/weather', async (req, res) => {
       start_date: forecastDate,
       end_date: forecastDate,
     })
-    const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`)
-
-    if (!response.ok) {
-      const responseText = await response.text()
-      throw new Error(`Open-Meteo request failed with ${response.status}: ${responseText.slice(0, 300)}`)
-    }
+    const response = await fetchWeather(`https://api.open-meteo.com/v1/forecast?${params.toString()}`)
 
     const data = await response.json() as {
       hourly?: {
