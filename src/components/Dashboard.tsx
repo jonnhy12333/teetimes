@@ -2,6 +2,7 @@ import { DatePicker, parseDate } from '@ark-ui/solid/date-picker'
 import { Slider } from '@ark-ui/solid/slider'
 import { createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show, Suspense } from 'solid-js'
 import type { JSX } from 'solid-js'
+import { appReleases, latestReleaseId } from '../releases'
 
 const CourseMap = lazy(() => import('./CourseMap'))
 
@@ -33,6 +34,7 @@ type ResultsView = 'timeline' | 'map'
 const apiBaseUrl = import.meta.env.VITE_API_URL || ''
 const courseRailKey = 'tee-times-course-rail-collapsed'
 const courseFilterKey = 'tee-times-course-filters-v3'
+const lastSeenReleaseKey = 'tee-times-last-seen-release'
 const dateValue = (date: Date) => date.toISOString().slice(0, 10)
 const playerFilters: PlayerFilter[] = ['any', 2, 3, 4]
 const holeFilters: HoleFilter[] = ['any', 9, 18]
@@ -300,6 +302,8 @@ export default function Dashboard() {
   const [teeTimeWeatherLoading, setTeeTimeWeatherLoading] = createSignal(false)
   const [teeTimeWeatherUnavailable, setTeeTimeWeatherUnavailable] = createSignal(false)
   const [resultsView, setResultsView] = createSignal<ResultsView>(initialSearch.resultsView)
+  const [whatsNewOpen, setWhatsNewOpen] = createSignal(false)
+  const [lastSeenRelease, setLastSeenRelease] = createSignal(localStorage.getItem(lastSeenReleaseKey) || '')
   let loadRequest = 0
   let timelineScroller!: HTMLDivElement
   let timelineDragStartX = 0
@@ -711,7 +715,7 @@ export default function Dashboard() {
     if (searchActivated()) void loadSearch(day())
     else void loadCourseCatalog().catch(() => setError('Could not load the course list.'))
     const closeOnOutsideClick = (event: PointerEvent) => { const target = event.target as Element; if (!target.closest('[data-course-picker]')) setCoursePickerOpen(false); if (!target.closest('[data-course-filter]')) setCourseFilterOpen(false) }
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setCoursePickerOpen(false); setCourseFilterOpen(false); setInfoCourse(null); setSelectedTeeTime(null); setTimelineFullscreen(false) } }
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setCoursePickerOpen(false); setCourseFilterOpen(false); setInfoCourse(null); setSelectedTeeTime(null); setWhatsNewOpen(false); setTimelineFullscreen(false) } }
     const restoreFromUrl = () => {
       const restored = initialSearchState()
       const wasActive = searchActivated()
@@ -748,6 +752,12 @@ export default function Dashboard() {
   })
 
   const ThemeSwitch = () => <label class="theme-switch"><input type="checkbox" checked={theme() === 'dark'} onChange={() => setTheme(theme() === 'dark' ? 'light' : 'dark')} aria-label="Toggle dark mode" /><span class="theme-switch-track"><span class="theme-switch-thumb" /></span><span class="theme-switch-text">{theme() === 'dark' ? 'Dark' : 'Light'}</span></label>
+  const openWhatsNew = () => {
+    setWhatsNewOpen(true)
+    setLastSeenRelease(latestReleaseId)
+    localStorage.setItem(lastSeenReleaseKey, latestReleaseId)
+  }
+  const HeaderActions = () => <div class="header-actions"><button type="button" class="whats-new-button" onClick={openWhatsNew} aria-label="What's new" title="What's new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" /><circle cx="12" cy="12" r="3" /></svg><span>What’s new</span><Show when={lastSeenRelease() !== latestReleaseId}><i aria-label="New updates available" /></Show></button><ThemeSwitch /></div>
   const updateLabel = () => {
     currentMinutes()
     if (refreshing()) return 'Updating…'
@@ -764,8 +774,9 @@ export default function Dashboard() {
   </Slider.Root>
 
   return <div class="container"><main class="dashboard search-dashboard">
+    <Show when={whatsNewOpen()}><div class="whats-new-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setWhatsNewOpen(false) }}><section class="whats-new-panel" role="dialog" aria-modal="true" aria-labelledby="whats-new-title"><header><div><span>TEE TIMES</span><h2 id="whats-new-title">What’s new</h2></div><button type="button" onClick={() => setWhatsNewOpen(false)} aria-label="Close what’s new">×</button></header><div class="whats-new-list"><For each={appReleases}>{(release, index) => <article><div><time>{release.date}</time><Show when={index() === 0}><span>Latest</span></Show></div><h3>{release.title}</h3><ul><For each={release.changes}>{(change) => <li>{change}</li>}</For></ul></article>}</For></div></section></div></Show>
     <Show when={searchActivated()} fallback={<>
-      <header class="entry-topbar"><ThemeSwitch /></header>
+      <header class="entry-topbar"><HeaderActions /></header>
       <section class="entry-screen">
         <div class="entry-copy"><p class="eyebrow">TEE TIMES NEAR YOU</p><h1>What kind of round are you looking for?</h1><p>Choose your search, optionally narrow it to one course, then find tee times.</p></div>
         <div class="entry-choices" role="radiogroup" aria-label="When do you want to play?">
@@ -784,7 +795,7 @@ export default function Dashboard() {
         <Show when={error()}>{(message) => <p class="entry-error">{message()}</p>}</Show>
       </section>
     </>}>
-    <header class="results-header"><button type="button" class="new-search-btn" onClick={startNewSearch} aria-label="Start a new search" title="New search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg></button><div class="board-date-nav"><button type="button" class="date-arrow" disabled={day() === dateValue(new Date())} onClick={() => stepDay(-1)} aria-label="Previous day">‹</button><CalendarPicker value={day()} label={dayLabel()} onChange={changeDay} /><button type="button" class="date-arrow" onClick={() => stepDay(1)} aria-label="Next day">›</button></div><ThemeSwitch /></header>
+    <header class="results-header"><button type="button" class="new-search-btn" onClick={startNewSearch} aria-label="Start a new search" title="New search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg></button><div class="board-date-nav"><button type="button" class="date-arrow" disabled={day() === dateValue(new Date())} onClick={() => stepDay(-1)} aria-label="Previous day">‹</button><CalendarPicker value={day()} label={dayLabel()} onChange={changeDay} /><button type="button" class="date-arrow" onClick={() => stepDay(1)} aria-label="Next day">›</button></div><HeaderActions /></header>
     <section class="search-results" aria-busy={loading()}>
       <div class="timeline-toolbar" classList={{ 'map-view': resultsView() === 'map' }} aria-label="Results controls">
         <MapTimeRange />
