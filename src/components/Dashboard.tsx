@@ -425,7 +425,7 @@ export default function Dashboard() {
     }
     const controller = new AbortController()
     setTeeTimeWeatherLoading(true)
-    void fetch(`${apiBaseUrl}/api/courses/${selection.course.id}/weather?date=${encodeURIComponent(selection.tee.date)}`, { signal: controller.signal })
+    void fetch(`${apiBaseUrl}/api/courses/${selection.course.id}/weather?date=${encodeURIComponent(selection.tee.date)}`, { signal: controller.signal, cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Weather request failed with ${response.status}`)
         return response.json() as Promise<{ hourly?: WeatherHour[]; unavailable?: boolean }>

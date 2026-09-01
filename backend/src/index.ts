@@ -111,6 +111,9 @@ app.get('/api/courses/:id/tee-times', async (req, res) => {
 })
 
 app.get('/api/courses/:id/weather', async (req, res) => {
+  // Successful forecasts are cached server-side. Avoid retaining a transient
+  // upstream failure in the browser or revalidating that fallback as a 304.
+  res.set('Cache-Control', 'no-store')
   try {
     const { id } = req.params
     const { date } = req.query
