@@ -1,9 +1,9 @@
 # Releasing
 
-Before pushing a user-facing update, add a concise entry to `src/releases.ts`.
+Before pushing a user-facing update, update `src/releases.ts`.
 
 - Put the newest release first.
-- Give every release a unique, stable `id` so the unread indicator works.
+- Group small related pushes into one entry per day; use a separate entry for a major release when helpful.
+- Give every published revision a unique `id` so the unread indicator returns when an existing day's notes gain new changes.
 - Describe visible changes in plain language; omit commit hashes and implementation details.
-- Combine closely related changes from the same release into one entry.
-
+- Keep the history curated rather than mirroring every commit.
