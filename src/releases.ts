@@ -8,7 +8,7 @@ export interface AppRelease {
 // Add the newest user-facing release first before pushing an app update.
 export const appReleases: AppRelease[] = [
   {
-    id: '2026-09-01-whats-new',
+    id: '2026-09-01-map-catalog',
     date: 'September 1, 2026',
     title: 'Nearby results, radar, and forecasts',
     changes: [
@@ -18,6 +18,8 @@ export const appReleases: AppRelease[] = [
       'Added The Jack Golf Course in Woodstock, New Hampshire.',
       'Search links now remember filters and whether you were using Map or Timeline view.',
       'Added an in-app What’s new panel for discovering recent improvements.',
+      'Map view now includes every active course while opening at a useful nearby area instead of zooming out for distant courses.',
+      'Courses sharing one location now get separate map markers instead of overlapping badges.',
     ],
   },
   {

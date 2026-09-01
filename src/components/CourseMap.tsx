@@ -57,14 +57,36 @@ const mapStyles = (theme: 'light' | 'dark') => theme === 'dark'
   ? [...darkMapStyles, ...hiddenPoiStyles]
   : hiddenPoiStyles
 
-function selectedMarkerIcon(fillColor: string): google.maps.Icon {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="54" height="64" viewBox="0 0 54 64"><defs><filter id="s" x="-40%" y="-30%" width="180%" height="180%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#s)"><path d="M27 5v18" stroke="#b3261e" stroke-width="3" stroke-linecap="round"/><path d="M29 6 45 12 29 18Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><circle cx="27" cy="40" r="19" fill="${fillColor}" stroke="#fff" stroke-width="4"/></g></svg>`
+function selectedMarkerIcon(fillColor: string, horizontalOffset = 0): google.maps.Icon {
+  const centerX = 20
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="64" viewBox="0 0 40 64"><defs><filter id="s" x="-40%" y="-30%" width="180%" height="180%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#s)"><path d="M${centerX} 5v18" stroke="#b3261e" stroke-width="3" stroke-linecap="round"/><path d="M${centerX + 2} 6 ${centerX + 18} 12 ${centerX + 2} 18Z" fill="#e53935" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><circle cx="${centerX}" cy="40" r="19" fill="${fillColor}" stroke="#fff" stroke-width="4"/></g></svg>`
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-    scaledSize: new google.maps.Size(54, 64),
-    anchor: new google.maps.Point(27, 40),
-    labelOrigin: new google.maps.Point(27, 40)
+    scaledSize: new google.maps.Size(40, 64),
+    anchor: new google.maps.Point(centerX - horizontalOffset, 40),
+    labelOrigin: new google.maps.Point(centerX, 40)
   }
+}
+
+function offsetMarkerIcon(fillColor: string, horizontalOffset: number): google.maps.Icon {
+  const centerX = 19
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="${centerX}" cy="19" r="17" fill="${fillColor}" stroke="#fff" stroke-width="3"/></svg>`
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new google.maps.Size(38, 38),
+    anchor: new google.maps.Point(centerX - horizontalOffset, 19),
+    labelOrigin: new google.maps.Point(centerX, 19),
+  }
+}
+
+function mapDistanceMiles(origin: { latitude: number; longitude: number }, course: Course) {
+  if (course.latitude === undefined || course.longitude === undefined) return Number.POSITIVE_INFINITY
+  const radians = (degrees: number) => degrees * Math.PI / 180
+  const latitudeDelta = radians(course.latitude - origin.latitude)
+  const longitudeDelta = radians(course.longitude - origin.longitude)
+  const a = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(radians(origin.latitude)) * Math.cos(radians(course.latitude)) * Math.sin(longitudeDelta / 2) ** 2
+  return 3958.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
 function radarTileUrl(coord: google.maps.Point, zoom: number) {
@@ -205,6 +227,11 @@ export default function CourseMap(props: CourseMapProps) {
     const activeId = selectedCourseId()
 
     const visibleCourseIds = new Set(courses.map((course) => course.id))
+    const coursesByPosition = new Map<string, Course[]>()
+    courses.forEach((course) => {
+      const key = `${course.latitude!.toFixed(6)},${course.longitude!.toFixed(6)}`
+      coursesByPosition.set(key, [...(coursesByPosition.get(key) || []), course])
+    })
     markers.forEach((marker, courseId) => {
       if (visibleCourseIds.has(courseId)) return
       marker.setMap(null)
@@ -215,6 +242,9 @@ export default function CourseMap(props: CourseMapProps) {
       const failed = failedIds.includes(course.id)
       const selected = activeId === course.id
       const fillColor = failed ? '#c0392b' : count === 0 ? '#747c78' : '#4caf50'
+      const positionKey = `${course.latitude!.toFixed(6)},${course.longitude!.toFixed(6)}`
+      const positionGroup = coursesByPosition.get(positionKey) || [course]
+      const horizontalOffset = positionGroup.length > 1 ? (positionGroup.findIndex((candidate) => candidate.id === course.id) - (positionGroup.length - 1) / 2) * 40 : 0
       let marker = markers.get(course.id)
       if (!marker) {
         marker = new google.maps.Marker({ map, position: { lat: course.latitude!, lng: course.longitude! } })
@@ -223,7 +253,7 @@ export default function CourseMap(props: CourseMapProps) {
       }
       marker.setTitle(`${course.name}: ${count} matching ${count === 1 ? 'tee time' : 'tee times'}`)
       marker.setLabel({ text: loadingIds.includes(course.id) ? '…' : failed ? '!' : String(count), color: '#fff', fontSize: '12px', fontWeight: '800' })
-      marker.setIcon(selected ? selectedMarkerIcon(fillColor) : {
+      marker.setIcon(selected ? selectedMarkerIcon(fillColor, horizontalOffset) : horizontalOffset ? offsetMarkerIcon(fillColor, horizontalOffset) : {
         path: google.maps.SymbolPath.CIRCLE,
         fillColor,
         fillOpacity: 1,
@@ -235,13 +265,32 @@ export default function CourseMap(props: CourseMapProps) {
       marker.setZIndex(selected ? 20 : count > 0 ? 10 : 1)
     })
 
-    const courseKey = courses.map((course) => course.id).sort().join('|')
+    const userLocation = props.userLocation
+    const locationKey = userLocation ? `${userLocation.latitude.toFixed(3)},${userLocation.longitude.toFixed(3)}` : 'none'
+    const courseKey = `${courses.map((course) => course.id).sort().join('|')}@${locationKey}`
     if (courses.length && courseKey !== fittedCourseKey) {
       fittedCourseKey = courseKey
+      let coursesToFrame = courses
+      let includeUserLocation = false
+      if (courses.length > 1 && userLocation) {
+        const nearbyCourses = courses.filter((course) => mapDistanceMiles(userLocation, course) <= 35)
+        if (nearbyCourses.length) {
+          coursesToFrame = nearbyCourses
+          includeUserLocation = true
+        }
+      } else if (courses.length > 1) {
+        const latitudes = courses.map((course) => course.latitude!).sort((a, b) => a - b)
+        const longitudes = courses.map((course) => course.longitude!).sort((a, b) => a - b)
+        const midpoint = Math.floor(courses.length / 2)
+        const center = { latitude: latitudes[midpoint], longitude: longitudes[midpoint] }
+        const clusteredCourses = courses.filter((course) => mapDistanceMiles(center, course) <= 40)
+        if (clusteredCourses.length) coursesToFrame = clusteredCourses
+      }
       const bounds = new google.maps.LatLngBounds()
-      courses.forEach((course) => bounds.extend({ lat: course.latitude!, lng: course.longitude! }))
+      coursesToFrame.forEach((course) => bounds.extend({ lat: course.latitude!, lng: course.longitude! }))
+      if (includeUserLocation && userLocation) bounds.extend({ lat: userLocation.latitude, lng: userLocation.longitude })
       map.fitBounds(bounds, 60)
-      if (courses.length === 1) map.setZoom(11)
+      if (coursesToFrame.length === 1) map.setZoom(11)
     }
   })
 

@@ -574,21 +574,22 @@ export default function Dashboard() {
     const selected = selectedCourseIds()
     const maximumDistance = courseDistance()
     const singleCourseSearch = Boolean(selectedEntryCourse())
+    const mapView = resultsView() === 'map'
     const filtered = courses().filter((course) => {
       if (!searchedCourseIds().includes(course.id)) return false
-      if (!singleCourseSearch && selected !== null && !selected.includes(course.id)) return false
-      if (!singleCourseSearch && maximumDistance !== 'any' && location()) {
+      if (!singleCourseSearch && !mapView && selected !== null && !selected.includes(course.id)) return false
+      if (!singleCourseSearch && !mapView && maximumDistance !== 'any' && location()) {
         const distance = distanceFor(course)
         if (distance === undefined || distance > maximumDistance) return false
       }
-      if (!singleCourseSearch && !showUnavailable() && !loadingCourseIds().includes(course.id) && timesFor(course.id).length === 0) return false
+      if (!singleCourseSearch && !mapView && !showUnavailable() && !loadingCourseIds().includes(course.id) && timesFor(course.id).length === 0) return false
       return true
     })
     return filtered.sort((a, b) => {
-      if (!singleCourseSearch && courseSort() === 'nearest') {
+      if (!singleCourseSearch && !mapView && courseSort() === 'nearest') {
         return (distanceFor(a) ?? Number.MAX_SAFE_INTEGER) - (distanceFor(b) ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name)
       }
-      if (!singleCourseSearch && courseSort() === 'availability') {
+      if (!singleCourseSearch && !mapView && courseSort() === 'availability') {
         return timesFor(b.id).length - timesFor(a.id).length
           || (distanceFor(a) ?? Number.MAX_SAFE_INTEGER) - (distanceFor(b) ?? Number.MAX_SAFE_INTEGER)
           || a.name.localeCompare(b.name)
