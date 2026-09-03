@@ -8,6 +8,15 @@ export interface AppRelease {
 // Add the newest user-facing release first before pushing an app update.
 export const appReleases: AppRelease[] = [
   {
+    id: '2026-09-03-availability-trends',
+    date: 'September 3, 2026',
+    title: 'See when a course is unusually open',
+    changes: [
+      'Added course-level availability indicators that compare tee-time inventory with similar historical searches.',
+      'New courses show Building history until enough same-weekday and booking-lead-time observations are available.',
+    ],
+  },
+  {
     id: '2026-09-01-course-hours',
     date: 'September 1, 2026',
     title: 'Nearby results, radar, and forecasts',
