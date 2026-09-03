@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { courses, getCourseById, getTeeTimesForCourse } from './courses.js'
+import { isSnapshotStorageConfigured, recordTeeTimeSnapshot, type SnapshotSource, type SnapshotStatus } from './db/snapshots.js'
 
 dotenv.config()
 
@@ -17,6 +18,37 @@ const developmentTeeTimeCacheDurationMs = Number(process.env.DEV_TEE_TIME_CACHE_
 const developmentTeeTimeCacheDirectory = resolve(process.cwd(), '.dev-cache', 'tee-times')
 const developmentTeeTimeCachePath = (courseId: string, date: string) => resolve(developmentTeeTimeCacheDirectory, `${courseId}-${date}`.replace(/[^a-zA-Z0-9._-]/g, '_') + '.json')
 const wait = (milliseconds: number) => new Promise((resolveWait) => setTimeout(resolveWait, milliseconds))
+const cronLeadDays = [1, 3, 7, 14]
+
+async function recordSnapshotSafely(
+  course: NonNullable<ReturnType<typeof getCourseById>>,
+  date: string,
+  teeTimes: Awaited<ReturnType<typeof getTeeTimesForCourse>>,
+  source: SnapshotSource,
+  status?: SnapshotStatus,
+  error?: unknown,
+) {
+  try {
+    await recordTeeTimeSnapshot(course, date, teeTimes, source, status, error)
+  } catch (snapshotError) {
+    console.warn(`Could not record tee-time snapshot for ${course.id} on ${date}`, snapshotError)
+  }
+}
+
+function addDays(date: string, days: number) {
+  const result = new Date(`${date}T12:00:00Z`)
+  result.setUTCDate(result.getUTCDate() + days)
+  return result.toISOString().slice(0, 10)
+}
+
+function currentDateInTimeZone(timeZone = 'America/New_York') {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
 
 async function fetchWeather(url: string) {
   let lastError: unknown
@@ -77,11 +109,10 @@ app.get('/api/courses', async (req, res) => {
 
 // Get tee times for a configured course
 app.get('/api/courses/:id/tee-times', async (req, res) => {
+  const { id } = req.params
+  const requestedDate = String(req.query.date || new Date().toISOString().slice(0, 10))
+  const course = getCourseById(id)
   try {
-    const { id } = req.params
-    const { date } = req.query
-    const course = getCourseById(id)
-
     if (!course) {
       res.status(404).json({ error: 'Course not found' })
       return
@@ -92,7 +123,6 @@ app.get('/api/courses/:id/tee-times', async (req, res) => {
       return
     }
 
-    const requestedDate = String(date || new Date().toISOString().slice(0, 10))
     const bypassCache = req.query.refresh === '1'
     const cachedTeeTimes = bypassCache ? undefined : await readDevelopmentTeeTimeCache(course.id, requestedDate)
     if (cachedTeeTimes) {
@@ -103,11 +133,56 @@ app.get('/api/courses/:id/tee-times', async (req, res) => {
 
     const teeTimes = await getTeeTimesForCourse(course, requestedDate)
     await writeDevelopmentTeeTimeCache(course.id, requestedDate, teeTimes)
+    await recordSnapshotSafely(course, requestedDate, teeTimes, 'lookup')
     if (developmentTeeTimeCacheEnabled) res.set('X-Dev-Tee-Time-Cache', bypassCache ? 'BYPASS' : 'MISS')
     res.json(teeTimes)
   } catch (error) {
+    if (course) await recordSnapshotSafely(course, requestedDate, [], 'lookup', 'error', error)
     res.status(500).json({ error: 'Failed to fetch tee times' })
   }
+})
+
+// Collect a small, consistent historical sample. Vercel automatically sends
+// CRON_SECRET as a Bearer token when this route is invoked by a configured cron.
+app.get('/api/cron/collect-tee-times', async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret || req.get('authorization') !== `Bearer ${cronSecret}`) {
+    res.status(401).json({ error: 'Unauthorized' })
+    return
+  }
+
+  if (!isSnapshotStorageConfigured()) {
+    res.status(503).json({ error: 'DATABASE_URL is not configured' })
+    return
+  }
+
+  const jobs = courses
+    .filter((course) => course.status !== 'unsupported')
+    .flatMap((course) => {
+      const today = currentDateInTimeZone(course.timeZone)
+      return cronLeadDays.map((leadDays) => ({ course, date: addDays(today, leadDays) }))
+    })
+  let nextJob = 0
+  let succeeded = 0
+  let failed = 0
+
+  async function worker() {
+    while (nextJob < jobs.length) {
+      const job = jobs[nextJob]
+      nextJob += 1
+      try {
+        const teeTimes = await getTeeTimesForCourse(job.course, job.date)
+        await recordSnapshotSafely(job.course, job.date, teeTimes, 'cron')
+        succeeded += 1
+      } catch (error) {
+        await recordSnapshotSafely(job.course, job.date, [], 'cron', 'error', error)
+        failed += 1
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(4, jobs.length) }, () => worker()))
+  res.json({ jobs: jobs.length, succeeded, failed, leadDays: cronLeadDays })
 })
 
 app.get('/api/courses/:id/weather', async (req, res) => {
@@ -187,6 +262,8 @@ app.get('/api/courses/:id/weather', async (req, res) => {
     res.json({ hourly: [], unavailable: true })
   }
 })
+
+export default app
 
 // Start server
 app.listen(port, () => {
