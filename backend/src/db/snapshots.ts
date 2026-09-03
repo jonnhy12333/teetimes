@@ -9,7 +9,8 @@ export type SnapshotStatus = 'success' | 'empty' | 'error'
 const observationBucketHours = 6
 
 function getDatabase() {
-  const databaseUrl = process.env.DATABASE_URL
+  const databaseUrl = process.env.SNAPSHOT_DATABASE_URL
+    || (process.env.NODE_ENV === 'production' ? process.env.DATABASE_URL : undefined)
   if (!databaseUrl) return undefined
   return drizzle(neon(databaseUrl))
 }
@@ -59,7 +60,7 @@ function summarizeTeeTimes(teeTimes: TeeTime[]) {
 }
 
 export function isSnapshotStorageConfigured() {
-  return Boolean(process.env.DATABASE_URL)
+  return Boolean(process.env.SNAPSHOT_DATABASE_URL || (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL))
 }
 
 export async function recordTeeTimeSnapshot(

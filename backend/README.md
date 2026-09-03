@@ -16,6 +16,7 @@ CRON_SECRET=replace-with-a-random-secret-at-least-16-characters-long
 - `DATABASE_URL` is injected automatically when a Neon database is connected through the Vercel Marketplace.
 - `CRON_SECRET` protects the collection endpoint. Vercel sends it as a Bearer token for scheduled invocations.
 - Without `DATABASE_URL`, live tee-time searches continue to work but no historical snapshots are recorded.
+- Outside production, snapshot writes are disabled unless `SNAPSHOT_DATABASE_URL` is explicitly set. Use `TRENDS_DATABASE_URL` for read-only access to production history during local development.
 
 ### Installation & Running
 
