@@ -12,6 +12,7 @@ interface CourseDetails { type?: string; holes?: number; par?: number; yardageMi
 export interface Course { id: string; name: string; city: string; state: string; bookingUrl: string; websiteUrl?: string; status?: 'active' | 'unsupported'; latitude?: number; longitude?: number; logoUrl?: string; headerImageUrl?: string; details?: CourseDetails }
 export interface TeeTime { id: string; courseId: string; time: string; date: string; holes: number | string; options?: Array<{ holes: 9 | 18; price?: number }>; price?: number; availableSpots?: number; bookingUrl: string }
 interface SelectedTeeTime { course: Course; tee: TeeTime; price?: number; holes: number | string }
+interface AvailabilityTrend { courseId: string; state: 'building' | 'open' | 'typical' | 'busy'; label: string; explanation: string; sampleSize: number; currentTeeTimeCount?: number; typicalTeeTimeCount?: number }
 interface WeatherHour { time: string; temperature?: number; apparentTemperature?: number; weatherCode?: number; windSpeed?: number; windGust?: number; precipitationProbability?: number }
 interface OpenMeteoWeather {
   hourly?: {
@@ -268,6 +269,7 @@ export default function Dashboard() {
   const [searchedCourseIds, setSearchedCourseIds] = createSignal<string[]>([])
   const [selectedEntryCourse, setSelectedEntryCourse] = createSignal(initialSearch.course)
   const [teeTimes, setTeeTimes] = createSignal<TeeTime[]>([])
+  const [availabilityTrends, setAvailabilityTrends] = createSignal<Record<string, AvailabilityTrend>>({})
   const [players, setPlayers] = createSignal<PlayerFilter>(initialSearch.players)
   const [holes, setHoles] = createSignal<HoleFilter>(initialSearch.holes)
   const [timeRange, setTimeRange] = createSignal<TimeRange>(initialSearch.timeRange)
@@ -653,7 +655,7 @@ export default function Dashboard() {
     const request = ++loadRequest
     let successfulCourses = 0
     if (options.background) { setRefreshing(true); setRefreshFailed(false) }
-    else { setLoading(true); setError(null); setTeeTimes([]); setFailedCourseIds([]); setLastUpdated(null) }
+    else { setLoading(true); setError(null); setTeeTimes([]); setAvailabilityTrends({}); setFailedCourseIds([]); setLastUpdated(null) }
     if (!selectedEntryCourse() && courseDistance() !== 'any' && !location()) void requestLocation()
     try {
       const allCourses = await loadCourseCatalog()
@@ -677,6 +679,10 @@ export default function Dashboard() {
         catch { if (request === loadRequest && !options.background) setFailedCourseIds((ids) => [...ids, course.id]) }
         finally { if (request === loadRequest && !options.background) setLoadingCourseIds((ids) => ids.filter((id) => id !== course.id)) }
       }))
+      try {
+        const trendResponse = await fetch(`${apiBaseUrl}/api/availability-trends?${new URLSearchParams({ date })}`, { cache: 'no-store' })
+        if (trendResponse.ok && request === loadRequest) setAvailabilityTrends(await trendResponse.json() as Record<string, AvailabilityTrend>)
+      } catch { /* Tee-time results remain useful when trend history is unavailable. */ }
       if (request === loadRequest && successfulCourses > 0) setLastUpdated(Date.now())
       if (request === loadRequest && options.background && successfulCourses === 0) setRefreshFailed(true)
     } catch {
@@ -697,6 +703,7 @@ export default function Dashboard() {
     setSearchActivated(false)
     setChoosingDate(false)
     setTeeTimes([])
+    setAvailabilityTrends({})
     setSearchedCourseIds([])
     setLoading(false)
     setRefreshing(false)
@@ -818,6 +825,7 @@ export default function Dashboard() {
             </div>
             <For each={resultCourses()}>{(course) => {
               const distance = () => distanceFor(course)
+              const trend = () => availabilityTrends()[course.id]
               const timeline = () => timelineFor(course.id)
               const timelineHeight = () => Math.max(54, timeline().lanes * timelineLaneHeight() + 12)
               const laneBlockHeight = () => timelineChipHeight() + Math.max(0, timeline().lanes - 1) * timelineLaneHeight()
@@ -825,7 +833,7 @@ export default function Dashboard() {
               return <article class="timeline-course-row" classList={{ 'no-matches': !loadingCourseIds().includes(course.id) && !failedCourseIds().includes(course.id) && timeline().items.length === 0 }}>
                 <header class="course-card-header timeline-course-header">
                   <button type="button" class="course-avatar course-avatar-button" aria-label={`View information about ${course.name}`} title={course.name} onClick={() => setInfoCourse(course)}><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></button>
-                  <div class="course-card-title"><button type="button" class="course-name course-name-button" onClick={() => setInfoCourse(course)}>{course.name}</button><p>{course.city}, {course.state}<Show when={distance() !== undefined}> · {distance()!.toFixed(1)} mi</Show></p></div>
+                  <div class="course-card-title"><button type="button" class="course-name course-name-button" onClick={() => setInfoCourse(course)}>{course.name}</button><p>{course.city}, {course.state}<Show when={distance() !== undefined}> · {distance()!.toFixed(1)} mi</Show></p><Show when={trend()}>{(value) => <span class={`availability-trend availability-trend-${value().state}`} title={value().explanation}><i aria-hidden="true" />{value().label}</span>}</Show></div>
                 </header>
                 <div class="timeline-track" style={{ width: `${timelineWidth()}px`, height: `${timelineHeight()}px` }}>
                   <For each={timelineTicks()}>{(tick) => <i class="timeline-gridline" style={{ left: `${timelineEdgePadding + (tick - timeRange()[0]) * timelineScale()}px` }} />}</For>

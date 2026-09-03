@@ -1495,6 +1495,12 @@ a.weather-chip:focus-visible {
 .timeline-course-header .course-card-title { overflow: hidden; }
 .timeline-course-header .course-name { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .timeline-course-header .course-card-title p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.availability-trend { align-items: center; color: var(--muted); display: flex; font-size: 9px; font-weight: 750; gap: 5px; line-height: 12px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.availability-trend i { background: currentColor; border-radius: 999px; flex: 0 0 auto; height: 6px; width: 6px; }
+.availability-trend-open { color: var(--accent-dark); }
+.availability-trend-busy { color: #b45309; }
+.availability-trend-typical { color: var(--muted); }
+.availability-trend-building { color: color-mix(in srgb, var(--muted) 72%, transparent); }
 .timeline-track { background: color-mix(in srgb, var(--panel) 93%, var(--panel-muted)); flex: 0 0 auto; overflow: visible; position: relative; transition: height .15s ease; }
 .timeline-gridline { border-left: 1px dashed color-mix(in srgb, var(--border) 70%, transparent); bottom: 0; position: absolute; top: 0; width: 0; }
 .timeline-now { border-left: 2px solid var(--danger); bottom: 0; pointer-events: none; position: absolute; top: 0; width: 0; z-index: 4; }

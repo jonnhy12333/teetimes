@@ -54,6 +54,7 @@ On Vercel Hobby, daily is the fastest supported cron schedule. The endpoint can 
 
 ### Courses
 - `GET /api/courses` - Get configured courses
+- `GET /api/availability-trends?date=YYYY-MM-DD` - Compare course availability with similar historical observations
 - `GET /api/courses/:id/tee-times` - Get tee times for a course
 - `GET /api/courses/:id/weather` - Get hourly weather for a course/date
 - `GET /api/cron/collect-tee-times` - Collect historical snapshots (requires `Authorization: Bearer <CRON_SECRET>`)

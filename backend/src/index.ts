@@ -5,6 +5,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { courses, getCourseById, getTeeTimesForCourse } from './courses.js'
 import { isSnapshotStorageConfigured, recordTeeTimeSnapshot, type SnapshotSource, type SnapshotStatus } from './db/snapshots.js'
+import { getAvailabilityTrends } from './db/trends.js'
 
 dotenv.config()
 
@@ -139,6 +140,21 @@ app.get('/api/courses/:id/tee-times', async (req, res) => {
   } catch (error) {
     if (course) await recordSnapshotSafely(course, requestedDate, [], 'lookup', 'error', error)
     res.status(500).json({ error: 'Failed to fetch tee times' })
+  }
+})
+
+app.get('/api/availability-trends', async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    const requestedDate = String(req.query.date || new Date().toISOString().slice(0, 10))
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+      res.status(400).json({ error: 'Invalid date' })
+      return
+    }
+    res.json(await getAvailabilityTrends(courses.filter((course) => course.status !== 'unsupported'), requestedDate))
+  } catch (error) {
+    console.error('Failed to calculate availability trends', error)
+    res.status(500).json({ error: 'Failed to calculate availability trends' })
   }
 })
 
