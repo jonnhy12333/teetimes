@@ -11,12 +11,14 @@ NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 DATABASE_URL=postgresql://...
 CRON_SECRET=replace-with-a-random-secret-at-least-16-characters-long
+CHRONOGOLF_FALLBACK_API_URL=https://teetimes-api.onrender.com
 ```
 
 - `DATABASE_URL` is injected automatically when a Neon database is connected through the Vercel Marketplace.
 - `CRON_SECRET` protects the collection endpoint. Vercel sends it as a Bearer token for scheduled invocations.
 - Without `DATABASE_URL`, live tee-time searches continue to work but no historical snapshots are recorded.
 - Outside production, snapshot writes are disabled unless `SNAPSHOT_DATABASE_URL` is explicitly set. Use `TRENDS_DATABASE_URL` for read-only access to production history during local development.
+- `CHRONOGOLF_FALLBACK_API_URL` is optional. Chronogolf requests use it only when the provider rejects a direct request from Vercel; it defaults to the existing Render API.
 
 ### Installation & Running
 

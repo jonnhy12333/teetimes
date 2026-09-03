@@ -20,6 +20,30 @@ const developmentTeeTimeCacheDirectory = resolve(process.cwd(), '.dev-cache', 't
 const developmentTeeTimeCachePath = (courseId: string, date: string) => resolve(developmentTeeTimeCacheDirectory, `${courseId}-${date}`.replace(/[^a-zA-Z0-9._-]/g, '_') + '.json')
 const wait = (milliseconds: number) => new Promise((resolveWait) => setTimeout(resolveWait, milliseconds))
 const cronLeadDays = [1, 3, 7, 14]
+const chronogolfFallbackApiUrl = (process.env.CHRONOGOLF_FALLBACK_API_URL || 'https://teetimes-api.onrender.com').replace(/\/$/, '')
+
+async function getTeeTimes(course: NonNullable<ReturnType<typeof getCourseById>>, date: string) {
+  try {
+    return await getTeeTimesForCourse(course, date)
+  } catch (error) {
+    if (course.bookingSystem !== 'Chronogolf' && course.bookingSystem !== 'Chronogolf v2') throw error
+
+    console.warn(`Direct ${course.bookingSystem} request failed for ${course.name}; trying fallback API`)
+    try {
+      const response = await fetch(`${chronogolfFallbackApiUrl}/api/courses/${encodeURIComponent(course.id)}/tee-times?${new URLSearchParams({ date })}`, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(45_000),
+      })
+      if (!response.ok) throw new Error(`Fallback API returned ${response.status}`)
+      const teeTimes = await response.json()
+      if (!Array.isArray(teeTimes)) throw new Error('Fallback API returned an invalid response')
+      return teeTimes as Awaited<ReturnType<typeof getTeeTimesForCourse>>
+    } catch (fallbackError) {
+      console.error(`Chronogolf fallback failed for ${course.name}`, fallbackError)
+      throw error
+    }
+  }
+}
 
 async function recordSnapshotSafely(
   course: NonNullable<ReturnType<typeof getCourseById>>,
@@ -132,7 +156,7 @@ app.get('/api/courses/:id/tee-times', async (req, res) => {
       return
     }
 
-    const teeTimes = await getTeeTimesForCourse(course, requestedDate)
+    const teeTimes = await getTeeTimes(course, requestedDate)
     await writeDevelopmentTeeTimeCache(course.id, requestedDate, teeTimes)
     await recordSnapshotSafely(course, requestedDate, teeTimes, 'lookup')
     if (developmentTeeTimeCacheEnabled) res.set('X-Dev-Tee-Time-Cache', bypassCache ? 'BYPASS' : 'MISS')
@@ -187,7 +211,7 @@ app.get('/api/cron/collect-tee-times', async (req, res) => {
       const job = jobs[nextJob]
       nextJob += 1
       try {
-        const teeTimes = await getTeeTimesForCourse(job.course, job.date)
+        const teeTimes = await getTeeTimes(job.course, job.date)
         await recordSnapshotSafely(job.course, job.date, teeTimes, 'cron')
         succeeded += 1
       } catch (error) {
