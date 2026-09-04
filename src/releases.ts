@@ -13,7 +13,7 @@ export const appReleases: AppRelease[] = [
     title: 'More room for map results',
     changes: [
       'The mobile map course sheet now floats over the page at collapsed, half-height, and fullscreen positions.',
-      'Drag the sheet handle or use its accessible expand and collapse controls without losing your place in the tee-time list.',
+      'The sheet follows your finger while you drag, then settles into the nearest position; accessible expand and collapse controls remain available.',
     ],
   },
   {

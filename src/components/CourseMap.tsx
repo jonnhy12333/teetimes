@@ -112,7 +112,9 @@ export default function CourseMap(props: CourseMapProps) {
   const [radarEnabled, setRadarEnabled] = createSignal(false)
   const [sheetPosition, setSheetPosition] = createSignal<SheetPosition>('half')
   const [mobileLayout, setMobileLayout] = createSignal(false)
+  const [sheetDragHeight, setSheetDragHeight] = createSignal<number | null>(null)
   let sheetDragStartY = 0
+  let sheetDragStartHeight = 0
   let sheetWasDragged = false
   let container!: HTMLDivElement
   let map: google.maps.Map | undefined
@@ -144,22 +146,34 @@ export default function CourseMap(props: CourseMapProps) {
 
   const beginSheetDrag = (event: PointerEvent) => {
     sheetDragStartY = event.clientY
+    sheetDragStartHeight = event.currentTarget.parentElement?.getBoundingClientRect().height || 0
     sheetWasDragged = false
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
   const moveSheetDrag = (event: PointerEvent) => {
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
-    if (Math.abs(event.clientY - sheetDragStartY) > 8) sheetWasDragged = true
+    const distance = event.clientY - sheetDragStartY
+    if (Math.abs(distance) > 8) sheetWasDragged = true
+    if (sheetWasDragged) setSheetDragHeight(Math.max(154, Math.min(window.innerHeight, sheetDragStartHeight - distance)))
   }
 
   const endSheetDrag = (event: PointerEvent) => {
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
     event.currentTarget.releasePointerCapture(event.pointerId)
-    const distance = event.clientY - sheetDragStartY
-    if (distance < -44) resizeSheet('up')
-    if (distance > 44) resizeSheet('down')
+    const height = sheetDragHeight()
+    if (height !== null) {
+      const stops: Array<[SheetPosition, number]> = [['collapsed', 154], ['half', window.innerHeight * .62], ['full', window.innerHeight]]
+      setSheetPosition(stops.reduce((nearest, stop) => Math.abs(stop[1] - height) < Math.abs(nearest[1] - height) ? stop : nearest)[0])
+      setSheetDragHeight(null)
+    }
     setTimeout(() => { sheetWasDragged = false }, 0)
+  }
+
+  const cancelSheetDrag = (event: PointerEvent) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    setSheetDragHeight(null)
+    sheetWasDragged = false
   }
 
   const cycleSheet = () => {
@@ -386,8 +400,8 @@ export default function CourseMap(props: CourseMapProps) {
     <Show when={mapError()}>{(message) => <div class="course-map-empty">{message()}</div>}</Show>
     <Show when={props.courses.every((course) => course.latitude === undefined || course.longitude === undefined)}><div class="course-map-empty">No course locations are available.</div></Show>
     <Show when={selectedCourse()} keyed>{(course) => {
-      return <aside class={`course-map-panel sheet-${sheetPosition()}`} aria-label={`${course.name} tee times`}>
-        <div class="course-map-sheet-controls" onPointerDown={beginSheetDrag} onPointerMove={moveSheetDrag} onPointerUp={endSheetDrag} onPointerCancel={() => { sheetWasDragged = false }}>
+      return <aside class={`course-map-panel sheet-${sheetPosition()}`} classList={{ 'sheet-dragging': sheetDragHeight() !== null }} style={sheetDragHeight() !== null ? { height: `${sheetDragHeight()}px` } : undefined} aria-label={`${course.name} tee times`}>
+        <div class="course-map-sheet-controls" onPointerDown={beginSheetDrag} onPointerMove={moveSheetDrag} onPointerUp={endSheetDrag} onPointerCancel={cancelSheetDrag}>
           <button type="button" class="course-map-sheet-grabber" onClick={cycleSheet} onKeyDown={(event) => { if (event.key === 'ArrowUp') { event.preventDefault(); resizeSheet('up') } else if (event.key === 'ArrowDown') { event.preventDefault(); resizeSheet('down') } }} aria-label={`${sheetPosition() === 'full' ? 'Restore half-height' : 'Expand'} course tee times. Use up and down arrow keys to resize.`} aria-expanded={sheetPosition() === 'full'}><span /></button>
         </div>
         <header classList={{ 'has-image': Boolean(course.headerImageUrl) }} style={course.headerImageUrl ? { 'background-image': `linear-gradient(180deg, rgb(8 18 12 / 8%) 0%, rgb(8 18 12 / 82%) 100%), url("${course.headerImageUrl}")` } : undefined}>
