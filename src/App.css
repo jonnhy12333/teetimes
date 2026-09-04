@@ -1430,7 +1430,7 @@ a.weather-chip:focus-visible {
 .whats-new-list article > div span { background: color-mix(in srgb, var(--accent) 16%, var(--panel)); border-radius: 999px; color: var(--accent-dark); font-size: 10px; font-weight: 800; padding: 3px 7px; }
 .whats-new-list h3 { font-size: 17px; margin: 7px 0 10px; }
 .whats-new-list ul { color: var(--muted); display: grid; font-size: 13px; gap: 8px; line-height: 1.45; margin: 0; padding-left: 20px; }
-.tee-time-detail-backdrop { align-items: flex-end; background: rgb(10 18 14 / 48%); display: flex; inset: 0; justify-content: center; position: fixed; z-index: 260; }
+.tee-time-detail-backdrop { align-items: flex-end; background: rgb(10 18 14 / 48%); display: flex; inset: 0; justify-content: center; position: fixed; z-index: 280; }
 .tee-time-detail-sheet { background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -10px 32px var(--shadow); max-width: 520px; overflow: hidden; width: 100%; }
 .tee-time-detail-sheet > header { align-items: center; border-bottom: 1px solid var(--divider); display: flex; gap: 11px; padding: 15px 16px; }
 .tee-time-detail-sheet > header > div:nth-child(2) { flex: 1; min-width: 0; }
@@ -1588,7 +1588,7 @@ a.weather-chip:focus-visible {
 .course-info-actions a.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
 
 @media (max-width: 600px) {
-  .course-info-backdrop { align-items: stretch; padding: 0; }
+  .course-info-backdrop { align-items: stretch; padding: 0; z-index: 270; }
   .course-info-modal { border: 0; border-radius: 0; height: 100dvh; max-height: 100dvh; max-width: none; }
   .course-info-header, .course-info-body { padding-left: 16px; padding-right: 16px; }
   .course-info-header.has-image { min-height: 220px; }
@@ -1656,7 +1656,7 @@ a.weather-chip:focus-visible {
   .course-map-fullscreen-toggle { bottom: auto; top: 12px; }
   .course-map-panel { border: 0; border-radius: 16px 16px 0 0; bottom: 0; height: 62%; left: 0; max-height: none; right: 0; top: auto; transition: height .24s cubic-bezier(.2, .75, .25, 1); width: 100%; }
   .course-map-panel.sheet-collapsed { height: 154px; }
-  .course-map-panel.sheet-full { height: calc(100% - 8px); z-index: 12; }
+  .course-map-panel.sheet-full { border-radius: 0; height: 100dvh; inset: 0; position: fixed; width: 100vw; z-index: 250; }
   .course-map-sheet-controls { background: var(--panel); display: flex; flex: 0 0 20px; touch-action: none; }
   .course-map-sheet-grabber { align-items: center; background: transparent; border: 0; cursor: grab; display: flex; flex: 1; height: 20px; justify-content: center; padding: 0; }
   .course-map-sheet-grabber:active { cursor: grabbing; }

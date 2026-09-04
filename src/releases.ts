@@ -12,7 +12,7 @@ export const appReleases: AppRelease[] = [
     date: 'September 4, 2026',
     title: 'More room for map results',
     changes: [
-      'The mobile map course sheet can now be collapsed, viewed at half height, or expanded to fill the map.',
+      'The mobile map course sheet can now be collapsed, viewed at half height, or expanded over the entire screen.',
       'Drag the sheet handle or use its accessible expand and collapse controls without losing your place in the tee-time list.',
     ],
   },

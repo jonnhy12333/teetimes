@@ -339,6 +339,13 @@ export default function CourseMap(props: CourseMapProps) {
   })
 
   createEffect(() => {
+    if (sheetPosition() !== 'full') return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    onCleanup(() => { document.body.style.overflow = previousOverflow })
+  })
+
+  createEffect(() => {
     if (!mapReady() || !map) return
     const userLocation = props.userLocation
     if (!userLocation) {
