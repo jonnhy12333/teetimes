@@ -14,7 +14,7 @@ const CourseMap = lazy(() => import('./CourseMap'))
 
 interface CourseTee { name: string; yardage?: number; rating?: number; slope?: number }
 interface CourseDetails { type?: string; holes?: number; par?: number; yardageMin?: number; yardageMax?: number; address?: string; phone?: string; description?: string; walkingPolicy?: string; amenities?: string[]; tees?: CourseTee[] }
-export interface Course { id: string; name: string; city: string; state: string; bookingUrl: string; websiteUrl?: string; status?: 'active' | 'unsupported'; latitude?: number; longitude?: number; logoUrl?: string; headerImageUrl?: string; details?: CourseDetails }
+export interface Course { id: string; name: string; city: string; state: string; bookingUrl: string; websiteUrl?: string; bookingMode?: 'live' | 'external' | 'phone'; status?: 'active' | 'unsupported'; latitude?: number; longitude?: number; logoUrl?: string; headerImageUrl?: string; details?: CourseDetails }
 export interface TeeTime { id: string; courseId: string; time: string; date: string; holes: number | string; options?: Array<{ holes: 9 | 18; price?: number }>; price?: number; availableSpots?: number; bookingUrl: string }
 interface SelectedTeeTime { course: Course; tee: TeeTime; price?: number; holes: number | string }
 export interface AvailabilityTrend { courseId: string; state: 'building' | 'open' | 'typical' | 'busy'; label: string; explanation: string; sampleSize: number; currentTeeTimeCount?: number; typicalTeeTimeCount?: number }
@@ -195,6 +195,9 @@ function googleMapsUrl(course: Course) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
+const isLiveCourse = (course: Course) => (course.bookingMode ?? 'live') === 'live' && course.status !== 'unsupported'
+const bookingModeLabel = (course: Course) => course.bookingMode === 'phone' ? 'Call to book' : course.bookingMode === 'external' ? 'Book on course site' : undefined
+
 function CourseInfoModal(props: { course: Course; onClose: () => void }) {
   const details = () => props.course.details
   const yardage = () => {
@@ -219,6 +222,7 @@ function CourseInfoModal(props: { course: Course; onClose: () => void }) {
         <button type="button" class="course-info-close" onClick={props.onClose} aria-label="Close course information"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
       </header>
       <div class="course-info-body">
+        <Show when={!isLiveCourse(props.course)}><div class="course-booking-notice"><strong>Live availability isn’t shown for this course.</strong><span>{props.course.bookingMode === 'phone' ? 'Call the course to check times and book.' : 'Check the course’s booking site for current tee times.'}</span></div></Show>
         <Show when={facts().length}><div class="course-info-facts"><For each={facts()}>{(fact) => <span>{fact}</span>}</For></div></Show>
         <Show when={details()?.description}><p class="course-info-description">{details()!.description}</p></Show>
         <Show when={details()?.tees?.length}><section class="course-info-section"><h3>Tees and ratings</h3><div class="course-tee-table-wrap"><table class="course-tee-table"><thead><tr><th>Tee</th><th>Yards</th><th>Rating</th><th>Slope</th></tr></thead><tbody><For each={details()!.tees}>{(tee) => <tr><td>{tee.name}</td><td>{tee.yardage?.toLocaleString() || '—'}</td><td>{tee.rating ?? '—'}</td><td>{tee.slope ?? '—'}</td></tr>}</For></tbody></table></div></section></Show>
@@ -226,7 +230,7 @@ function CourseInfoModal(props: { course: Course; onClose: () => void }) {
         <Show when={details()?.amenities?.length}><section class="course-info-section"><h3>Amenities</h3><div class="course-info-amenities"><For each={details()!.amenities}>{(amenity) => <span>{amenity}</span>}</For></div></section></Show>
         <section class="course-info-section course-info-contact"><h3>Course details</h3><Show when={details()?.address}><p>{details()!.address}</p></Show><Show when={details()?.phone}><a href={`tel:${details()!.phone}`}>{details()!.phone}</a></Show><Show when={!details()?.address && !details()?.phone}><p>{props.course.city}, {props.course.state}</p></Show></section>
       </div>
-      <footer class="course-info-actions"><GoogleMapsPlaceLink course={props.course} /><a href={googleMapsUrl(props.course)} target="_blank" rel="noreferrer">Directions</a><Show when={props.course.websiteUrl}><a href={props.course.websiteUrl} target="_blank" rel="noreferrer">Course website</a></Show><a class="primary" href={props.course.bookingUrl} target="_blank" rel="noreferrer">Booking site</a></footer>
+      <footer class="course-info-actions"><GoogleMapsPlaceLink course={props.course} /><a href={googleMapsUrl(props.course)} target="_blank" rel="noreferrer">Directions</a><Show when={props.course.websiteUrl}><a href={props.course.websiteUrl} target="_blank" rel="noreferrer">Course website</a></Show><a class="primary" href={props.course.bookingUrl} target={props.course.bookingMode === 'phone' ? undefined : '_blank'} rel={props.course.bookingMode === 'phone' ? undefined : 'noreferrer'}>{props.course.bookingMode === 'phone' ? `Call ${details()?.phone || 'course'}` : props.course.bookingMode === 'external' ? 'Book on course website' : 'Booking site'}</a></footer>
     </section>
   </div>
 }
@@ -589,6 +593,7 @@ export default function Dashboard() {
     const mapView = resultsView() === 'map'
     const filtered = courses().filter((course) => {
       if (!searchedCourseIds().includes(course.id)) return false
+      if (!mapView && !isLiveCourse(course)) return false
       if (!singleCourseSearch && !mapView && selected !== null && !selected.includes(course.id)) return false
       if (!singleCourseSearch && !mapView && maximumDistance !== 'any' && location()) {
         const distance = distanceFor(course)
@@ -654,7 +659,7 @@ export default function Dashboard() {
     if (courses().length) return courses()
     const response = await fetch(`${apiBaseUrl}/api/courses`)
     if (!response.ok) throw new Error()
-    const list = (await response.json() as Course[]).filter((course) => course.status !== 'unsupported')
+    const list = await response.json() as Course[]
     setCourses(list)
     if (selectedEntryCourse() && !list.some((course) => course.id === selectedEntryCourse())) setSelectedEntryCourse('')
     return list
@@ -669,10 +674,11 @@ export default function Dashboard() {
     try {
       const allCourses = await loadCourseCatalog()
       const list = selectedEntryCourse() ? allCourses.filter((course) => course.id === selectedEntryCourse()) : allCourses
+      const liveList = list.filter(isLiveCourse)
       if (request !== loadRequest) return
       setSearchedCourseIds(list.map((course) => course.id))
-      if (!options.background) setLoadingCourseIds(list.map((course) => course.id))
-      await Promise.all(list.map(async (course) => {
+      if (!options.background) setLoadingCourseIds(liveList.map((course) => course.id))
+      await Promise.all(liveList.map(async (course) => {
         try {
           const query = new URLSearchParams({ date })
           if (options.bypassCache) query.set('refresh', '1')
@@ -724,6 +730,7 @@ export default function Dashboard() {
   function searchTonight() { const today = dateValue(new Date()); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange([15 * 60, timeMaximum]); setDay(today); void loadSearch(today) }
   function searchTomorrow() { const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); const value = dateValue(tomorrow); activateSearch(); setPlayers('any'); setHoles('any'); setTimeRange([...fullDayRange]); setDay(value); void loadSearch(value) }
   function submitEntrySearch() {
+    if (selectedCourse() && !isLiveCourse(selectedCourse()!)) setResultsView('map')
     if (entryIntent() === 'now') searchPlayNow()
     else if (entryIntent() === 'tonight') searchTonight()
     else if (entryIntent() === 'tomorrow') searchTomorrow()
@@ -806,8 +813,8 @@ export default function Dashboard() {
         <Show when={choosingDate()}><div class="entry-date"><div class="search-control date-control"><label>Date</label><div class="board-date-nav"><button type="button" class="date-arrow" disabled={day() === dateValue(new Date())} onClick={() => stepDay(-1)} aria-label="Previous day">‹</button><CalendarPicker value={day()} label={dayLabel()} onChange={changeDay} /><button type="button" class="date-arrow" onClick={() => stepDay(1)} aria-label="Next day">›</button></div></div></div></Show>
         <div class="entry-course-choice" data-course-picker>
           <label>Have a course in mind?</label>
-          <button type="button" class="course-picker-trigger" aria-haspopup="listbox" aria-expanded={coursePickerOpen()} onClick={() => setCoursePickerOpen(!coursePickerOpen())}><Show when={selectedCourse()} fallback={<div class="course-picker-all-icon">All</div>}>{(course) => <CourseAvatar class="compact" name={course().name} logoUrl={course().logoUrl} />}</Show><span><strong>{selectedCourse()?.name || 'Search all courses'}</strong><small>{selectedCourse() ? `${selectedCourse()!.city}, ${selectedCourse()!.state}` : 'Compare every available course'}</small></span><svg class="course-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5" /></svg></button>
-          <Show when={coursePickerOpen()}><div class="course-picker-menu" role="listbox" aria-label="Choose a course"><button type="button" role="option" aria-selected={!selectedEntryCourse()} onClick={() => { setSelectedEntryCourse(''); setCoursePickerOpen(false) }}><div class="course-picker-all-icon">All</div><span><strong>Search all courses</strong><small>Compare every available course</small></span></button><For each={coursesByName()}>{(course) => <button type="button" role="option" aria-selected={selectedEntryCourse() === course.id} onClick={() => { setSelectedEntryCourse(course.id); setCoursePickerOpen(false) }}><CourseAvatar class="compact" name={course.name} logoUrl={course.logoUrl} /><span><strong>{course.name}</strong><small>{course.city}, {course.state}</small></span></button>}</For></div></Show>
+          <button type="button" class="course-picker-trigger" aria-haspopup="listbox" aria-expanded={coursePickerOpen()} onClick={() => setCoursePickerOpen(!coursePickerOpen())}><Show when={selectedCourse()} fallback={<div class="course-picker-all-icon">All</div>}>{(course) => <CourseAvatar class="compact" name={course().name} logoUrl={course().logoUrl} />}</Show><span><strong>{selectedCourse()?.name || 'Search all courses'}</strong><small>{selectedCourse() ? `${selectedCourse()!.city}, ${selectedCourse()!.state}${bookingModeLabel(selectedCourse()!) ? ` · ${bookingModeLabel(selectedCourse()!)}` : ''}` : 'Compare every available course'}</small></span><svg class="course-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5" /></svg></button>
+          <Show when={coursePickerOpen()}><div class="course-picker-menu" role="listbox" aria-label="Choose a course"><button type="button" role="option" aria-selected={!selectedEntryCourse()} onClick={() => { setSelectedEntryCourse(''); setCoursePickerOpen(false) }}><div class="course-picker-all-icon">All</div><span><strong>Search all courses</strong><small>Compare every available course</small></span></button><For each={coursesByName()}>{(course) => <button type="button" role="option" aria-selected={selectedEntryCourse() === course.id} onClick={() => { setSelectedEntryCourse(course.id); setCoursePickerOpen(false) }}><CourseAvatar class="compact" name={course.name} logoUrl={course.logoUrl} /><span><strong>{course.name}</strong><small>{course.city}, {course.state}<Show when={bookingModeLabel(course)}> · {bookingModeLabel(course)}</Show></small></span></button>}</For></div></Show>
           <span class="course-picker-help">{selectedEntryCourse() ? 'We’ll check only this course.' : 'Optional — the default searches every course.'}</span>
         </div>
         <button type="button" class="entry-submit" onClick={submitEntrySearch}>Find tee times</button>

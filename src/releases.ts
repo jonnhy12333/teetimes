@@ -17,6 +17,8 @@ export const appReleases: AppRelease[] = [
       'Course panels now group times by hour and scroll more smoothly on mobile.',
       'Tee-time details and What’s New now open more smoothly.',
       'Results now show when they’re updating, and missing course logos fall back cleanly.',
+      'Added Trull Brook Golf Course in Tewksbury, Massachusetts.',
+      'Added Apple Hill, Candia Woods, Four Oaks, and Londonderry Country Club with direct booking options.',
     ],
   },
   {

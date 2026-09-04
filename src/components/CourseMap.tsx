@@ -153,6 +153,13 @@ export default function CourseMap(props: CourseMapProps) {
   const isToday = createMemo(() => props.selectedDate === new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()))
 
   const chooseCourse = (course: Course) => {
+    if ((course.bookingMode ?? 'live') !== 'live') {
+      setDrawerOpen(false)
+      setDesktopPopoverOpen(false)
+      setSelectedCourseId(null)
+      props.onSelectCourse(course)
+      return
+    }
     setMobileSnapPoint('500px')
     setSelectedCourseId(course.id)
     if (mobileLayout()) setDrawerOpen(true)
@@ -274,9 +281,10 @@ export default function CourseMap(props: CourseMapProps) {
     })
     courses.forEach((course) => {
       const count = (timesByCourse[course.id] || []).length
+      const bookingOnly = (course.bookingMode ?? 'live') !== 'live'
       const failed = failedIds.includes(course.id)
       const selected = activeId === course.id
-      const fillColor = failed ? '#c0392b' : count === 0 ? '#747c78' : '#4caf50'
+      const fillColor = bookingOnly ? '#2962a3' : failed ? '#c0392b' : count === 0 ? '#747c78' : '#4caf50'
       const positionKey = `${course.latitude!.toFixed(6)},${course.longitude!.toFixed(6)}`
       const positionGroup = coursesByPosition.get(positionKey) || [course]
       const horizontalOffset = positionGroup.length > 1 ? (positionGroup.findIndex((candidate) => candidate.id === course.id) - (positionGroup.length - 1) / 2) * 40 : 0
@@ -286,8 +294,8 @@ export default function CourseMap(props: CourseMapProps) {
         marker.addListener('click', () => chooseCourse(course))
         markers.set(course.id, marker)
       }
-      marker.setTitle(`${course.name}: ${count} matching ${count === 1 ? 'tee time' : 'tee times'}`)
-      marker.setLabel({ text: loadingIds.includes(course.id) ? '…' : failed ? '!' : String(count), color: '#fff', fontSize: '12px', fontWeight: '800' })
+      marker.setTitle(bookingOnly ? `${course.name}: ${course.bookingMode === 'phone' ? 'call to book' : 'book on course site'}` : `${course.name}: ${count} matching ${count === 1 ? 'tee time' : 'tee times'}`)
+      marker.setLabel({ text: bookingOnly ? (course.bookingMode === 'phone' ? '☎' : '↗') : loadingIds.includes(course.id) ? '…' : failed ? '!' : String(count), color: '#fff', fontSize: bookingOnly ? '15px' : '12px', fontWeight: '800' })
       marker.setIcon(selected ? selectedMarkerIcon(fillColor, horizontalOffset) : horizontalOffset ? offsetMarkerIcon(fillColor, horizontalOffset) : {
         path: google.maps.SymbolPath.CIRCLE,
         fillColor,
@@ -297,7 +305,7 @@ export default function CourseMap(props: CourseMapProps) {
         strokeWeight: 3,
         scale: 17
       })
-      marker.setZIndex(selected ? 20 : count > 0 ? 10 : 1)
+      marker.setZIndex(selected ? 20 : count > 0 || bookingOnly ? 10 : 1)
     })
 
     const userLocation = props.userLocation

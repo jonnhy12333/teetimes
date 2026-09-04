@@ -28,20 +28,33 @@ async function getTeeTimes(course: NonNullable<ReturnType<typeof getCourseById>>
   } catch (error) {
     if (course.bookingSystem !== 'Chronogolf' && course.bookingSystem !== 'Chronogolf v2') throw error
 
-    console.warn(`Direct ${course.bookingSystem} request failed for ${course.name}; trying fallback API`)
+    console.warn(`Direct ${course.bookingSystem} request failed for ${course.name}; retrying`)
+    await wait(500)
     try {
-      const response = await fetch(`${chronogolfFallbackApiUrl}/api/courses/${encodeURIComponent(course.id)}/tee-times?${new URLSearchParams({ date })}`, {
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(45_000),
-      })
-      if (!response.ok) throw new Error(`Fallback API returned ${response.status}`)
-      const teeTimes = await response.json()
-      if (!Array.isArray(teeTimes)) throw new Error('Fallback API returned an invalid response')
-      return teeTimes as Awaited<ReturnType<typeof getTeeTimesForCourse>>
-    } catch (fallbackError) {
-      console.error(`Chronogolf fallback failed for ${course.name}`, fallbackError)
-      throw error
+      return await getTeeTimesForCourse(course, date)
+    } catch {
+      console.warn(`Direct ${course.bookingSystem} retry failed for ${course.name}; trying fallback API`)
     }
+
+    let fallbackError: unknown
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const response = await fetch(`${chronogolfFallbackApiUrl}/api/courses/${encodeURIComponent(course.id)}/tee-times?${new URLSearchParams({ date })}`, {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(25_000),
+        })
+        if (!response.ok) throw new Error(`Fallback API returned ${response.status}`)
+        const teeTimes = await response.json()
+        if (!Array.isArray(teeTimes)) throw new Error('Fallback API returned an invalid response')
+        return teeTimes as Awaited<ReturnType<typeof getTeeTimesForCourse>>
+      } catch (attemptError) {
+        fallbackError = attemptError
+        if (attempt === 0) await wait(750)
+      }
+    }
+
+    console.error(`Chronogolf fallback failed for ${course.name}`, fallbackError)
+    throw error
   }
 }
 
@@ -143,7 +156,7 @@ app.get('/api/courses/:id/tee-times', async (req, res) => {
       return
     }
 
-    if (course.status === 'unsupported') {
+    if ((course.bookingMode ?? 'live') !== 'live' || course.status === 'unsupported') {
       res.json([])
       return
     }
@@ -160,6 +173,7 @@ app.get('/api/courses/:id/tee-times', async (req, res) => {
     await writeDevelopmentTeeTimeCache(course.id, requestedDate, teeTimes)
     await recordSnapshotSafely(course, requestedDate, teeTimes, 'lookup')
     if (developmentTeeTimeCacheEnabled) res.set('X-Dev-Tee-Time-Cache', bypassCache ? 'BYPASS' : 'MISS')
+    if (!bypassCache) res.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=900, stale-if-error=86400')
     res.json(teeTimes)
   } catch (error) {
     if (course) await recordSnapshotSafely(course, requestedDate, [], 'lookup', 'error', error)
@@ -175,7 +189,7 @@ app.get('/api/availability-trends', async (req, res) => {
       res.status(400).json({ error: 'Invalid date' })
       return
     }
-    res.json(await getAvailabilityTrends(courses.filter((course) => course.status !== 'unsupported'), requestedDate))
+    res.json(await getAvailabilityTrends(courses.filter((course) => (course.bookingMode ?? 'live') === 'live' && course.status !== 'unsupported'), requestedDate))
   } catch (error) {
     console.error('Failed to calculate availability trends', error)
     res.status(500).json({ error: 'Failed to calculate availability trends' })
@@ -197,7 +211,7 @@ app.get('/api/cron/collect-tee-times', async (req, res) => {
   }
 
   const jobs = courses
-    .filter((course) => course.status !== 'unsupported')
+    .filter((course) => (course.bookingMode ?? 'live') === 'live' && course.status !== 'unsupported')
     .flatMap((course) => {
       const today = currentDateInTimeZone(course.timeZone)
       return cronLeadDays.map((leadDays) => ({ course, date: addDays(today, leadDays) }))

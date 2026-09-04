@@ -3,6 +3,7 @@ import axios from 'axios'
 import { randomUUID } from 'node:crypto'
 
 export type CourseAuthType = 'none' | 'member-login' | 'oauth' | 'unknown'
+export type CourseBookingMode = 'live' | 'external' | 'phone'
 
 export interface CourseDetails {
   type?: string
@@ -32,6 +33,7 @@ export interface CourseConfig {
   bookingUrl: string
   websiteUrl?: string
   authType: CourseAuthType
+  bookingMode?: CourseBookingMode
   status?: 'active' | 'unsupported'
   latitude?: number
   longitude?: number
@@ -69,6 +71,8 @@ export interface CourseConfig {
   clubCaddie?: {
     courseId: number
     apiKey: string
+    host?: string
+    holeGroup?: string
   }
   cpsGolf?: {
     host: string
@@ -450,11 +454,40 @@ export const courses: CourseConfig[] = [
     notes: 'Public ForeUP tee times with 9- and 18-hole availability.',
   },
   {
+    id: 'trull-brook-golf-course',
+    name: 'Trull Brook Golf Course',
+    city: 'Tewksbury',
+    state: 'MA',
+    bookingSystem: 'Club Caddie',
+    bookingUrl: 'https://apimanager-cc29.clubcaddie.com/webapi/view/gafdabab/slots',
+    websiteUrl: 'https://trullbrook.com/',
+    authType: 'none',
+    latitude: 42.65293,
+    longitude: -71.2603,
+    timeZone: 'America/New_York',
+    logoUrl: '/course-logos/trull-brook.png',
+    headerImageUrl: '/course-headers/trull-brook.jpg',
+    details: {
+      type: 'Public', holes: 18, par: 72, yardageMax: 6345,
+      address: '170 River Road, Tewksbury, MA 01876', phone: '(978) 851-6731',
+      description: 'A classic Geoffrey Cornish layout with rolling terrain, water features, and views along the Merrimack River.',
+      walkingPolicy: 'Carts are required Friday through Sunday and on holidays before 2 PM.',
+      amenities: ['Practice greens', 'Hitting net', 'Golf shop', 'Restaurant'],
+    },
+    clubCaddie: {
+      courseId: 103407,
+      apiKey: 'gafdabab',
+      host: 'https://apimanager-cc29.clubcaddie.com',
+      holeGroup: 'all',
+    },
+    notes: 'Public Club Caddie tee-time HTML endpoint with encoded slot data.',
+  },
+  {
     id: 'four-oaks-country-club',
     name: 'Four Oaks Country Club',
     city: 'Dracut',
     state: 'MA',
-    status: 'unsupported',
+    bookingMode: 'external',
     bookingSystem: 'CPS Golf',
     bookingUrl: 'https://fouroaks.cps.golf/onlineresweb/search-teetime?TeeOffTimeMin=0&TeeOffTimeMax=23',
     websiteUrl: 'https://www.fouroakscountryclub.com/',
@@ -478,7 +511,71 @@ export const courses: CourseConfig[] = [
       siteId: 1,
       terminalId: 3,
     },
-    notes: 'Temporarily hidden because Cloudflare blocks server-side access to the CPS Golf API. Public CPS Golf tee times previously included 9- and 18-hole pricing.',
+    notes: 'Book on the course website because Cloudflare blocks server-side access to the CPS Golf API.',
+  },
+  {
+    id: 'apple-hill-golf-club',
+    name: 'Apple Hill Golf Club',
+    city: 'East Kingston',
+    state: 'NH',
+    bookingMode: 'phone',
+    bookingSystem: 'Phone',
+    bookingUrl: 'tel:+16036424414',
+    websiteUrl: 'https://applehillgolf.com/',
+    authType: 'none',
+    latitude: 42.92218,
+    longitude: -70.9822,
+    timeZone: 'America/New_York',
+    details: {
+      type: 'Public', holes: 18,
+      address: '69 East Road, East Kingston, NH 03827', phone: '(603) 642-4414',
+      description: 'An approachable public course with wide fairways, bentgrass greens, and water in play on more than half the holes.',
+      amenities: ['Practice green', 'Par-3 course', 'Golf shop'],
+    },
+    notes: 'Tee times are booked by calling the course.',
+  },
+  {
+    id: 'londonderry-country-club',
+    name: 'Londonderry Country Club',
+    city: 'Londonderry',
+    state: 'NH',
+    bookingMode: 'phone',
+    bookingSystem: 'Phone',
+    bookingUrl: 'tel:+16034329789',
+    websiteUrl: 'https://www.londonderrycountryclub.com/',
+    authType: 'none',
+    latitude: 42.88637,
+    longitude: -71.42416,
+    timeZone: 'America/New_York',
+    details: {
+      type: 'Public', holes: 18, par: 62, yardageMax: 3840,
+      address: '56 Kimball Road, Londonderry, NH 03053', phone: '(603) 432-9789',
+      description: 'A walkable executive course with tree-lined fairways, bentgrass greens, and a mix of par 3s and par 4s.',
+      walkingPolicy: 'Walking is encouraged; a limited number of riding carts are available first come, first served.',
+      amenities: ['Putting green', 'Golf shop', 'Club rentals', 'Snack bar'],
+    },
+    notes: 'Tee-time reservations are made by calling the pro shop up to two days in advance.',
+  },
+  {
+    id: 'candia-woods-golf-links',
+    name: 'Candia Woods Golf Links',
+    city: 'Candia',
+    state: 'NH',
+    bookingMode: 'external',
+    bookingSystem: 'Quick18',
+    bookingUrl: 'https://candiaoaks.com/candiaoaks-tee-times/',
+    websiteUrl: 'https://candiaoaks.com/candia-woods-course/',
+    authType: 'none',
+    latitude: 43.04544,
+    longitude: -71.31587,
+    timeZone: 'America/New_York',
+    details: {
+      type: 'Public', holes: 18, par: 71, yardageMax: 6550,
+      address: '313 South Road, Candia, NH 03034', phone: '(603) 483-2307',
+      description: 'A friendly Phil Wogan design with generous landing areas and greens that welcome running approaches.',
+      amenities: ['Driving range', 'Practice green', 'Golf shop', 'Restaurant'],
+    },
+    notes: 'Book on the course website; its embedded tee sheet is not available to the live search.',
   },
   {
     id: 'the-jack-golf-course',
@@ -1270,6 +1367,7 @@ function formatDateForClubCaddie(date: string) {
 
 async function getClubCaddieTeeTimes(course: CourseConfig, date: string): Promise<TeeTime[]> {
   if (!course.clubCaddie) return []
+  const host = (course.clubCaddie.host || 'https://apimanager-cc28.clubcaddie.com').replace(/\/$/, '')
 
   const searchParams = new URLSearchParams({
     date: formatDateForClubCaddie(date),
@@ -1280,15 +1378,15 @@ async function getClubCaddieTeeTimes(course: CourseConfig, date: string): Promis
     minprice: '0',
     maxprice: '999',
     ratetype: 'any',
-    HoleGroup: 'front',
+    HoleGroup: course.clubCaddie.holeGroup || 'front',
     CourseId: String(course.clubCaddie.courseId),
     apikey: course.clubCaddie.apiKey,
   })
-  const response = await axios.post<string>('https://apimanager-cc28.clubcaddie.com/webapi/TeeTimes', searchParams.toString(), {
+  const response = await axios.post<string>(`${host}/webapi/TeeTimes`, searchParams.toString(), {
     headers: {
       Accept: '*/*',
       'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-      Origin: 'https://apimanager-cc28.clubcaddie.com',
+      Origin: host,
       Referer: course.bookingUrl,
       'User-Agent': 'Mozilla/5.0',
       'X-Requested-With': 'XMLHttpRequest',
@@ -1296,7 +1394,7 @@ async function getClubCaddieTeeTimes(course: CourseConfig, date: string): Promis
   })
   const $ = cheerio.load(response.data)
   const bookingParams = new URLSearchParams(searchParams)
-  const bookingUrl = `https://apimanager-cc28.clubcaddie.com/webapi/view/${course.clubCaddie.apiKey}/slots?${bookingParams.toString()}`
+  const bookingUrl = `${host}/webapi/view/${course.clubCaddie.apiKey}/slots?${bookingParams.toString()}`
 
   return ($('form[id^="TeeTimeSlotForm"]').map((index, form) => {
     const encodedSlot = $(form).find('input[name="slot"]').attr('value')

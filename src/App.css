@@ -1431,6 +1431,9 @@ a.weather-chip:focus-visible {
 .course-map-time-list button strong { color: var(--accent-dark); font-size: 13px; white-space: nowrap; }
 .course-map-time-list button span { color: var(--muted); font-size: 10px; }
 .course-map-no-times, .course-map-empty { color: var(--muted); font-size: 13px; }
+.course-booking-notice { background: color-mix(in srgb, var(--accent) 9%, var(--panel)); border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border)); border-radius: 10px; display: grid; gap: 3px; margin-bottom: 14px; padding: 12px 14px; }
+.course-booking-notice strong { font-size: 13px; }
+.course-booking-notice span { color: var(--muted); font-size: 12px; }
 .course-map-empty { background: var(--panel); border: 1px solid var(--border); border-radius: 9px; left: 50%; padding: 10px 13px; position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 4; }
 .whats-new-backdrop { background: rgb(10 18 14 / 48%); inset: 0; position: fixed; z-index: 300; }
 .whats-new-positioner { align-items: center; display: flex; inset: 0; justify-content: center; padding: 16px; pointer-events: none; position: fixed; z-index: 301; }
