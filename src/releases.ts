@@ -8,6 +8,15 @@ export interface AppRelease {
 // Add the newest user-facing release first before pushing an app update.
 export const appReleases: AppRelease[] = [
   {
+    id: '2026-09-04-map-bottom-sheet',
+    date: 'September 4, 2026',
+    title: 'More room for map results',
+    changes: [
+      'The mobile map course sheet can now be collapsed, viewed at half height, or expanded to fill the map.',
+      'Drag the sheet handle or use its accessible expand and collapse controls without losing your place in the tee-time list.',
+    ],
+  },
+  {
     id: '2026-09-03-availability-trends',
     date: 'September 3, 2026',
     title: 'See when a course is unusually open',

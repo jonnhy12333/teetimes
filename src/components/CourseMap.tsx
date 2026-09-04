@@ -4,6 +4,7 @@ import CourseHours from './CourseHours'
 import { loadMapsLibrary } from '../googleMaps'
 
 type HoleFilter = 'any' | 9 | 18
+type SheetPosition = 'collapsed' | 'half' | 'full'
 
 interface CourseMapProps {
   selectedDate: string
@@ -109,6 +110,9 @@ export default function CourseMap(props: CourseMapProps) {
   const [selectedCourseId, setSelectedCourseId] = createSignal<string | null>(null)
   const [mapFullscreen, setMapFullscreen] = createSignal(false)
   const [radarEnabled, setRadarEnabled] = createSignal(false)
+  const [sheetPosition, setSheetPosition] = createSignal<SheetPosition>('half')
+  let sheetDragStartY = 0
+  let sheetWasDragged = false
   let container!: HTMLDivElement
   let map: google.maps.Map | undefined
   let mapClickListener: google.maps.MapsEventListener | undefined
@@ -123,11 +127,55 @@ export default function CourseMap(props: CourseMapProps) {
 
   const chooseCourse = (course: Course) => {
     setSelectedCourseId(course.id)
+    setSheetPosition('half')
+  }
+
+  const closeCourse = () => {
+    setSelectedCourseId(null)
+    setSheetPosition('half')
+  }
+
+  const resizeSheet = (direction: 'up' | 'down') => {
+    const positions: SheetPosition[] = ['collapsed', 'half', 'full']
+    const index = positions.indexOf(sheetPosition())
+    setSheetPosition(positions[Math.max(0, Math.min(positions.length - 1, index + (direction === 'up' ? 1 : -1)))])
+  }
+
+  const beginSheetDrag = (event: PointerEvent) => {
+    sheetDragStartY = event.clientY
+    sheetWasDragged = false
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const moveSheetDrag = (event: PointerEvent) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+    if (Math.abs(event.clientY - sheetDragStartY) > 8) sheetWasDragged = true
+  }
+
+  const endSheetDrag = (event: PointerEvent) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+    event.currentTarget.releasePointerCapture(event.pointerId)
+    const distance = event.clientY - sheetDragStartY
+    if (distance < -44) resizeSheet('up')
+    if (distance > 44) resizeSheet('down')
+    setTimeout(() => { sheetWasDragged = false }, 0)
+  }
+
+  const cycleSheet = () => {
+    if (sheetWasDragged) {
+      sheetWasDragged = false
+      return
+    }
+    resizeSheet(sheetPosition() === 'full' ? 'down' : 'up')
   }
 
   onMount(() => {
     let disposed = false
-    const closeFullscreen = (event: KeyboardEvent) => { if (event.key === 'Escape') setMapFullscreen(false) }
+    const closeFullscreen = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      if (sheetPosition() === 'full') setSheetPosition('half')
+      else setMapFullscreen(false)
+    }
     document.addEventListener('keydown', closeFullscreen)
     void loadMapsLibrary().then((library) => {
       if (disposed) return
@@ -168,7 +216,7 @@ export default function CourseMap(props: CourseMapProps) {
         clickableIcons: false,
         gestureHandling: 'greedy'
       })
-      mapClickListener = map.addListener('click', () => setSelectedCourseId(null))
+      mapClickListener = map.addListener('click', closeCourse)
       setMapReady(true)
       return
     }
@@ -325,11 +373,16 @@ export default function CourseMap(props: CourseMapProps) {
     <Show when={mapError()}>{(message) => <div class="course-map-empty">{message()}</div>}</Show>
     <Show when={props.courses.every((course) => course.latitude === undefined || course.longitude === undefined)}><div class="course-map-empty">No course locations are available.</div></Show>
     <Show when={selectedCourse()} keyed>{(course) => {
-      return <aside class="course-map-panel" aria-label={`${course.name} tee times`}>
+      return <aside class={`course-map-panel sheet-${sheetPosition()}`} aria-label={`${course.name} tee times`}>
+        <div class="course-map-sheet-controls" onPointerDown={beginSheetDrag} onPointerMove={moveSheetDrag} onPointerUp={endSheetDrag} onPointerCancel={() => { sheetWasDragged = false }}>
+          <button type="button" class="course-map-sheet-collapse" disabled={sheetPosition() === 'collapsed'} onPointerDown={(event) => event.stopPropagation()} onClick={() => resizeSheet('down')} aria-label="Collapse course tee times">⌄</button>
+          <button type="button" class="course-map-sheet-grabber" onClick={cycleSheet} aria-label={sheetPosition() === 'full' ? 'Restore half-height course tee times' : 'Expand course tee times'} aria-expanded={sheetPosition() === 'full'}><span /></button>
+          <button type="button" class="course-map-sheet-expand" disabled={sheetPosition() === 'full'} onPointerDown={(event) => event.stopPropagation()} onClick={() => resizeSheet('up')} aria-label="Expand course tee times">⌃</button>
+        </div>
         <header classList={{ 'has-image': Boolean(course.headerImageUrl) }} style={course.headerImageUrl ? { 'background-image': `linear-gradient(180deg, rgb(8 18 12 / 8%) 0%, rgb(8 18 12 / 82%) 100%), url("${course.headerImageUrl}")` } : undefined}>
           <button type="button" class="course-avatar course-avatar-button" onClick={() => props.onSelectCourse(course)} aria-label={`View information about ${course.name}`}><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></button>
           <div><button type="button" class="course-name course-name-button" onClick={() => props.onSelectCourse(course)}>{course.name}</button><p>{course.city}, {course.state}</p><CourseHours course={course} inline /></div>
-          <button type="button" class="course-map-panel-close" onClick={() => setSelectedCourseId(null)} aria-label="Close course tee times">×</button>
+          <button type="button" class="course-map-panel-close" onClick={closeCourse} aria-label="Close course tee times">×</button>
         </header>
         <div class="course-map-panel-body">
           <strong>{selectedTimes().length} matching {selectedTimes().length === 1 ? 'time' : 'times'}</strong>
