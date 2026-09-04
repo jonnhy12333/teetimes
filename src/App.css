@@ -1430,8 +1430,9 @@ a.weather-chip:focus-visible {
 .whats-new-list article > div span { background: color-mix(in srgb, var(--accent) 16%, var(--panel)); border-radius: 999px; color: var(--accent-dark); font-size: 10px; font-weight: 800; padding: 3px 7px; }
 .whats-new-list h3 { font-size: 17px; margin: 7px 0 10px; }
 .whats-new-list ul { color: var(--muted); display: grid; font-size: 13px; gap: 8px; line-height: 1.45; margin: 0; padding-left: 20px; }
-.tee-time-detail-backdrop { align-items: flex-end; background: rgb(10 18 14 / 48%); display: flex; inset: 0; justify-content: center; position: fixed; z-index: 280; }
-.tee-time-detail-sheet { background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -10px 32px var(--shadow); max-width: 520px; overflow: hidden; width: 100%; }
+.tee-time-detail-backdrop { background: rgb(10 18 14 / 54%); inset: 0; position: fixed; z-index: 400; }
+.tee-time-detail-positioner { align-items: center; display: flex; inset: 0; justify-content: center; padding: 16px; pointer-events: none; position: fixed; z-index: 401; }
+.tee-time-detail-sheet { background: var(--panel); border-radius: 16px; box-shadow: 0 18px 48px var(--shadow); max-height: calc(100dvh - 32px); max-width: 520px; overflow: auto; pointer-events: auto; width: 100%; }
 .tee-time-detail-sheet > header { align-items: center; border-bottom: 1px solid var(--divider); display: flex; gap: 11px; padding: 15px 16px; }
 .tee-time-detail-sheet > header > div:nth-child(2) { flex: 1; min-width: 0; }
 .tee-time-detail-sheet h2 { font-size: 17px; line-height: 1.2; }
@@ -1461,11 +1462,13 @@ a.weather-chip:focus-visible {
 .tee-time-weather-unavailable { margin: 0 !important; text-align: center; }
 .tee-time-detail-sheet > footer { border-top: 1px solid var(--divider); padding: 12px 16px max(12px, env(safe-area-inset-bottom)); }
 .tee-time-detail-sheet > footer a { align-items: center; background: var(--accent); border-radius: 9px; color: var(--accent-contrast); display: flex; font-size: 14px; font-weight: 800; justify-content: center; min-height: 46px; text-decoration: none; }
+.tee-time-detail-backdrop[data-state='open'] { animation: dialog-fade-in .2s ease-out; }
+.tee-time-detail-backdrop[data-state='closed'] { animation: dialog-fade-out .16s ease-in; }
+.tee-time-detail-sheet[data-state='open'] { animation: dialog-enter .22s cubic-bezier(.2, .75, .25, 1); }
+.tee-time-detail-sheet[data-state='closed'] { animation: dialog-exit .16s ease-in; }
 @media (min-width: 701px) {
   .whats-new-backdrop { align-items: center; padding: 24px; }
   .whats-new-panel { border-radius: 16px; box-shadow: 0 18px 48px var(--shadow); max-width: 540px; }
-  .tee-time-detail-backdrop { align-items: center; padding: 24px; }
-  .tee-time-detail-sheet { border-radius: 16px; box-shadow: 0 18px 48px var(--shadow); }
 }
 .timeline-canvas { background: var(--panel); min-height: 100%; min-width: 100%; width: max-content; }
 .timeline-ruler, .timeline-course-row { display: flex; width: max-content; }
@@ -1688,6 +1691,11 @@ a.weather-chip:focus-visible {
   from { transform: translate3d(0, 100%, 0); }
   to { transform: translate3d(var(--drawer-translate-x, 0), var(--drawer-translate-y, 0), 0); }
 }
+
+@keyframes dialog-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dialog-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes dialog-enter { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes dialog-exit { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(6px) scale(.98); } }
 
 @media (max-width: 430px) {
   .timeline-scroll { --timeline-course-width: 200px; }
