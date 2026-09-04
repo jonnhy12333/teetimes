@@ -13,6 +13,7 @@ export const appReleases: AppRelease[] = [
     title: 'Smoother browsing',
     changes: [
       'Drag map results up for a full-screen view.',
+      'Desktop map results now open in a smoother floating panel.',
       'Tee-time details and What’s New now open more smoothly.',
       'Results now show when they’re updating, and missing course logos fall back cleanly.',
     ],

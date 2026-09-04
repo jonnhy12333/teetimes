@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import { Drawer } from '@ark-ui/solid/drawer'
+import { Popover } from '@ark-ui/solid/popover'
 import { Portal } from 'solid-js/web'
 import type { Course, TeeTime } from './Dashboard'
 import CourseHours from './CourseHours'
@@ -116,6 +117,7 @@ export default function CourseMap(props: CourseMapProps) {
   const [mobileLayout, setMobileLayout] = createSignal(false)
   const [mobileSnapPoint, setMobileSnapPoint] = createSignal<number | string>('500px')
   const [drawerOpen, setDrawerOpen] = createSignal(false)
+  const [desktopPopoverOpen, setDesktopPopoverOpen] = createSignal(false)
   let container!: HTMLDivElement
   let map: google.maps.Map | undefined
   let mapClickListener: google.maps.MapsEventListener | undefined
@@ -131,12 +133,13 @@ export default function CourseMap(props: CourseMapProps) {
   const chooseCourse = (course: Course) => {
     setMobileSnapPoint('500px')
     setSelectedCourseId(course.id)
-    setDrawerOpen(true)
+    if (mobileLayout()) setDrawerOpen(true)
+    else setDesktopPopoverOpen(true)
   }
 
   const closeCourse = () => {
     if (mobileLayout()) setDrawerOpen(false)
-    else setSelectedCourseId(null)
+    else setDesktopPopoverOpen(false)
   }
 
   onMount(() => {
@@ -337,7 +340,7 @@ export default function CourseMap(props: CourseMapProps) {
   const shownHoles = (tee: TeeTime) => props.selectedHoles === 'any' ? tee.holes : props.selectedHoles
 
   const panelContents = (course: Course, mobile: boolean) => <>
-    <Show when={mobile}>
+    <Show when={mobile} fallback={<Popover.Title class="sr-only">{course.name} tee times</Popover.Title>}>
       <Drawer.Title class="sr-only">{course.name} tee times</Drawer.Title>
       <Drawer.Grabber class="course-map-sheet-controls" aria-label="Resize course tee times">
         <Drawer.GrabberIndicator class="course-map-sheet-grabber" />
@@ -346,7 +349,7 @@ export default function CourseMap(props: CourseMapProps) {
     <header classList={{ 'has-image': Boolean(course.headerImageUrl) }} style={course.headerImageUrl ? { 'background-image': `linear-gradient(180deg, rgb(8 18 12 / 8%) 0%, rgb(8 18 12 / 82%) 100%), url("${course.headerImageUrl}")` } : undefined}>
       <button type="button" class="course-avatar-button" onClick={() => props.onSelectCourse(course)} aria-label={`View information about ${course.name}`}><CourseAvatar name={course.name} logoUrl={course.logoUrl} /></button>
       <div><button type="button" class="course-name course-name-button" onClick={() => props.onSelectCourse(course)}>{course.name}</button><p>{course.city}, {course.state}</p><CourseHours course={course} inline /></div>
-      <Show when={mobile} fallback={<button type="button" class="course-map-panel-close" onClick={closeCourse} aria-label="Close course tee times">×</button>}>
+      <Show when={mobile} fallback={<Popover.CloseTrigger class="course-map-panel-close" aria-label="Close course tee times">×</Popover.CloseTrigger>}>
         <Drawer.CloseTrigger class="course-map-panel-close" aria-label="Close course tee times">×</Drawer.CloseTrigger>
       </Show>
     </header>
@@ -370,7 +373,9 @@ export default function CourseMap(props: CourseMapProps) {
     <Show when={mapError()}>{(message) => <div class="course-map-empty">{message()}</div>}</Show>
     <Show when={props.courses.every((course) => course.latitude === undefined || course.longitude === undefined)}><div class="course-map-empty">No course locations are available.</div></Show>
     <Show when={selectedCourse()} keyed>{(course) => <Show when={!mobileLayout()}>
-      <aside class="course-map-panel" aria-label={`${course.name} tee times`}>{panelContents(course, false)}</aside>
+      <Popover.Root open={desktopPopoverOpen()} modal={false} portalled={false} autoFocus={false} onOpenChange={(details) => setDesktopPopoverOpen(details.open)} onExitComplete={() => setSelectedCourseId(null)}>
+        <Popover.Positioner class="course-map-desktop-positioner"><Popover.Content class="course-map-panel course-map-popover">{panelContents(course, false)}</Popover.Content></Popover.Positioner>
+      </Popover.Root>
     </Show>}</Show>
     <Show when={mobileLayout()}>
       <Portal>
