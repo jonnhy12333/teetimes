@@ -1297,7 +1297,7 @@ a.weather-chip:focus-visible {
 .results-view-switch button { background: transparent; border: 0; border-left: 1px solid var(--divider); color: var(--muted); cursor: pointer; font: inherit; font-size: 11px; font-weight: 750; padding: 0 11px; }
 .results-view-switch button:first-child { border-left: 0; }
 .results-view-switch button:hover { background: var(--panel-muted); }
-.results-view-switch button.active { background: var(--accent); color: var(--accent-contrast); }
+.results-view-switch button[data-state='on'] { background: var(--accent); color: var(--accent-contrast); }
 .results-view-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .timeline-toolbar { align-items: end; display: flex; gap: 14px; justify-content: space-between; margin-bottom: 8px; }
 .timeline-refiners { align-items: end; display: flex; gap: 10px; }
@@ -1597,6 +1597,8 @@ a.weather-chip:focus-visible {
   .course-info-actions a { text-align: center; }
   .course-info-actions a.primary { grid-column: 1 / -1; grid-row: 1; }
 }
+
+.app-drawer-indent { min-height: 100dvh; }
 .unavailable-results { margin-top: 22px; }
 .unavailable-heading { align-items: baseline; display: flex; gap: 10px; justify-content: space-between; margin: 0 2px 8px; }
 .unavailable-heading h3 { font-size: 15px; }
@@ -1625,6 +1627,8 @@ a.weather-chip:focus-visible {
 }
 
 @media (max-width: 700px) {
+  .app-drawer-indent { background: var(--bg); position: relative; transform-origin: top center; transition: border-radius .28s cubic-bezier(.2, .75, .25, 1), transform .28s cubic-bezier(.2, .75, .25, 1); z-index: 1; }
+  body:has(.course-map-drawer-positioner[data-state='open']:not([hidden])) .app-drawer-indent { border-radius: 14px; overflow: clip; transform: translateY(10px) scale(.96); }
   .timeline-scroll { --timeline-course-width: 220px; }
   .container:has(.search-results) { padding: 8px; }
   .container:has(.search-results) .search-dashboard { gap: 8px; padding-bottom: 0; }
@@ -1654,18 +1658,14 @@ a.weather-chip:focus-visible {
   .timeline-fullscreen .timeline-floating-controls .timeline-zoom-controls { display: inline-flex; }
   .course-map-board, .course-map-canvas { min-height: 420px; }
   .course-map-fullscreen-toggle { bottom: auto; top: 12px; }
-  .course-map-panel { border: 0; border-radius: 16px 16px 0 0; bottom: 0; height: 62dvh; left: 0; max-height: none; position: fixed; right: 0; top: auto; transition: height .24s cubic-bezier(.2, .75, .25, 1); width: 100vw; z-index: 250; }
-  .course-map-panel.sheet-collapsed { height: 154px; }
-  .course-map-panel.sheet-full { border-radius: 0; height: 100dvh; width: 100vw; z-index: 250; }
-  .course-map-panel.sheet-dragging { border-radius: 16px 16px 0 0; inset: auto 0 0; transition: none; }
-  .course-map-sheet-controls { background: var(--panel); display: flex; flex: 0 0 20px; touch-action: none; }
-  .course-map-sheet-grabber { align-items: center; background: transparent; border: 0; cursor: grab; display: flex; flex: 1; height: 20px; justify-content: center; padding: 0; }
-  .course-map-sheet-grabber:active { cursor: grabbing; }
-  .course-map-sheet-grabber span { background: color-mix(in srgb, var(--muted) 52%, transparent); border-radius: 999px; height: 4px; width: 38px; }
-  .course-map-sheet-grabber:focus-visible { background: color-mix(in srgb, var(--accent) 8%, var(--panel)); outline: 2px solid var(--accent); outline-offset: -2px; }
-  .course-map-board:has(.course-map-panel.sheet-full) .course-map-fullscreen-toggle,
-  .course-map-board:has(.course-map-panel.sheet-full) .course-map-radar-toggle,
-  .course-map-board:has(.course-map-panel.sheet-full) .course-map-radar-credit { opacity: 0; pointer-events: none; }
+  .course-map-drawer-positioner { align-items: flex-end; display: flex; inset: 0; pointer-events: none; position: fixed; z-index: 250; }
+  .course-map-drawer-positioner[hidden], .course-map-panel.course-map-drawer[hidden] { display: none; }
+  .course-map-panel.course-map-drawer { border: 0; border-radius: 16px 16px 0 0; height: 100dvh; inset: auto 0 0; max-height: none; position: absolute; transition: transform .24s cubic-bezier(.2, .75, .25, 1); width: 100vw; }
+  .course-map-panel.course-map-drawer.is-entering { animation: course-map-drawer-in .28s cubic-bezier(.2, .75, .25, 1); }
+  .course-map-panel.course-map-drawer[data-expanded] { border-radius: 0; }
+  .course-map-sheet-controls { align-items: center; background: var(--panel); cursor: grab; display: flex; flex: 0 0 20px; justify-content: center; touch-action: none; }
+  .course-map-sheet-controls:active { cursor: grabbing; }
+  .course-map-sheet-grabber { background: color-mix(in srgb, var(--muted) 52%, transparent); border-radius: 999px; height: 4px; width: 38px; }
   .course-map-panel > header.has-image { min-height: 100px; padding-top: 38px; }
   .course-map-panel > header > div { overflow: hidden; }
   .course-map-panel .course-name-button { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1682,6 +1682,11 @@ a.weather-chip:focus-visible {
   .unavailable-course { display: flex; flex-direction: column; }
   .unavailable-course-header { border-bottom: 1px solid var(--divider); border-right: 0; }
   .unavailable-message { min-height: 70px; }
+}
+
+@keyframes course-map-drawer-in {
+  from { transform: translate3d(0, 100%, 0); }
+  to { transform: translate3d(var(--drawer-translate-x, 0), var(--drawer-translate-y, 0), 0); }
 }
 
 @media (max-width: 430px) {

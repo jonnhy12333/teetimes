@@ -1,11 +1,11 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { Drawer } from '@ark-ui/solid/drawer'
+import { Portal } from 'solid-js/web'
 import type { Course, TeeTime } from './Dashboard'
 import CourseHours from './CourseHours'
 import { loadMapsLibrary } from '../googleMaps'
 
 type HoleFilter = 'any' | 9 | 18
-type SheetPosition = 'collapsed' | 'half' | 'full'
-
 interface CourseMapProps {
   selectedDate: string
   courses: Course[]
@@ -38,6 +38,8 @@ const darkMapStyles: google.maps.MapTypeStyle[] = [
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#7796a0' }] },
   { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#142d38' }] }
 ]
+
+const MOBILE_SHEET_SNAP_POINTS = ['500px', 1]
 
 const hiddenPoiStyles: google.maps.MapTypeStyle[] = [
   { featureType: 'poi.business', elementType: 'labels', stylers: [{ visibility: 'off' }] },
@@ -110,12 +112,10 @@ export default function CourseMap(props: CourseMapProps) {
   const [selectedCourseId, setSelectedCourseId] = createSignal<string | null>(null)
   const [mapFullscreen, setMapFullscreen] = createSignal(false)
   const [radarEnabled, setRadarEnabled] = createSignal(false)
-  const [sheetPosition, setSheetPosition] = createSignal<SheetPosition>('half')
   const [mobileLayout, setMobileLayout] = createSignal(false)
-  const [sheetDragHeight, setSheetDragHeight] = createSignal<number | null>(null)
-  let sheetDragStartY = 0
-  let sheetDragStartHeight = 0
-  let sheetWasDragged = false
+  const [mobileSnapPoint, setMobileSnapPoint] = createSignal<number | string>('500px')
+  const [drawerEntering, setDrawerEntering] = createSignal(false)
+  let drawerEnterTimer: ReturnType<typeof setTimeout> | undefined
   let container!: HTMLDivElement
   let map: google.maps.Map | undefined
   let mapClickListener: google.maps.MapsEventListener | undefined
@@ -129,59 +129,15 @@ export default function CourseMap(props: CourseMapProps) {
   const isToday = createMemo(() => props.selectedDate === new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()))
 
   const chooseCourse = (course: Course) => {
+    setMobileSnapPoint('500px')
+    setDrawerEntering(true)
+    clearTimeout(drawerEnterTimer)
+    drawerEnterTimer = setTimeout(() => setDrawerEntering(false), 300)
     setSelectedCourseId(course.id)
-    setSheetPosition('half')
   }
 
   const closeCourse = () => {
     setSelectedCourseId(null)
-    setSheetPosition('half')
-  }
-
-  const resizeSheet = (direction: 'up' | 'down') => {
-    const positions: SheetPosition[] = ['collapsed', 'half', 'full']
-    const index = positions.indexOf(sheetPosition())
-    setSheetPosition(positions[Math.max(0, Math.min(positions.length - 1, index + (direction === 'up' ? 1 : -1)))])
-  }
-
-  const beginSheetDrag = (event: PointerEvent) => {
-    sheetDragStartY = event.clientY
-    sheetDragStartHeight = event.currentTarget.parentElement?.getBoundingClientRect().height || 0
-    sheetWasDragged = false
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  const moveSheetDrag = (event: PointerEvent) => {
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
-    const distance = event.clientY - sheetDragStartY
-    if (Math.abs(distance) > 8) sheetWasDragged = true
-    if (sheetWasDragged) setSheetDragHeight(Math.max(154, Math.min(window.innerHeight, sheetDragStartHeight - distance)))
-  }
-
-  const endSheetDrag = (event: PointerEvent) => {
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
-    event.currentTarget.releasePointerCapture(event.pointerId)
-    const height = sheetDragHeight()
-    if (height !== null) {
-      const stops: Array<[SheetPosition, number]> = [['collapsed', 154], ['half', window.innerHeight * .62], ['full', window.innerHeight]]
-      setSheetPosition(stops.reduce((nearest, stop) => Math.abs(stop[1] - height) < Math.abs(nearest[1] - height) ? stop : nearest)[0])
-      requestAnimationFrame(() => setSheetDragHeight(null))
-    }
-    setTimeout(() => { sheetWasDragged = false }, 0)
-  }
-
-  const cancelSheetDrag = (event: PointerEvent) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-    setSheetDragHeight(null)
-    sheetWasDragged = false
-  }
-
-  const cycleSheet = () => {
-    if (sheetWasDragged) {
-      sheetWasDragged = false
-      return
-    }
-    resizeSheet(sheetPosition() === 'full' ? 'down' : 'up')
   }
 
   onMount(() => {
@@ -190,11 +146,7 @@ export default function CourseMap(props: CourseMapProps) {
     const updateMobileLayout = () => setMobileLayout(mobileQuery.matches)
     updateMobileLayout()
     mobileQuery.addEventListener('change', updateMobileLayout)
-    const closeFullscreen = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      if (sheetPosition() === 'full') setSheetPosition('half')
-      else setMapFullscreen(false)
-    }
+    const closeFullscreen = (event: KeyboardEvent) => { if (event.key === 'Escape') setMapFullscreen(false) }
     document.addEventListener('keydown', closeFullscreen)
     void loadMapsLibrary().then((library) => {
       if (disposed) return
@@ -211,6 +163,7 @@ export default function CourseMap(props: CourseMapProps) {
         if (radarIndex >= 0) map.overlayMapTypes.removeAt(radarIndex)
       }
       radarOverlay = undefined
+      clearTimeout(drawerEnterTimer)
       mapClickListener?.remove()
       mapClickListener = undefined
       map = undefined
@@ -359,13 +312,6 @@ export default function CourseMap(props: CourseMapProps) {
   })
 
   createEffect(() => {
-    if (!selectedCourseId() || !mobileLayout()) return
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    onCleanup(() => { document.body.style.overflow = previousOverflow })
-  })
-
-  createEffect(() => {
     if (!mapReady() || !map) return
     const userLocation = props.userLocation
     if (!userLocation) {
@@ -392,6 +338,32 @@ export default function CourseMap(props: CourseMapProps) {
   const shownOption = (tee: TeeTime) => props.selectedHoles === 'any' ? undefined : tee.options?.find((option) => option.holes === props.selectedHoles)
   const shownHoles = (tee: TeeTime) => props.selectedHoles === 'any' ? tee.holes : props.selectedHoles
 
+  const panelContents = (course: Course, mobile: boolean) => <>
+    <Show when={mobile}>
+      <Drawer.Title class="sr-only">{course.name} tee times</Drawer.Title>
+      <Drawer.Grabber class="course-map-sheet-controls" aria-label="Resize course tee times">
+        <Drawer.GrabberIndicator class="course-map-sheet-grabber" />
+      </Drawer.Grabber>
+    </Show>
+    <header classList={{ 'has-image': Boolean(course.headerImageUrl) }} style={course.headerImageUrl ? { 'background-image': `linear-gradient(180deg, rgb(8 18 12 / 8%) 0%, rgb(8 18 12 / 82%) 100%), url("${course.headerImageUrl}")` } : undefined}>
+      <button type="button" class="course-avatar course-avatar-button" onClick={() => props.onSelectCourse(course)} aria-label={`View information about ${course.name}`}><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></button>
+      <div><button type="button" class="course-name course-name-button" onClick={() => props.onSelectCourse(course)}>{course.name}</button><p>{course.city}, {course.state}</p><CourseHours course={course} inline /></div>
+      <Show when={mobile} fallback={<button type="button" class="course-map-panel-close" onClick={closeCourse} aria-label="Close course tee times">×</button>}>
+        <Drawer.CloseTrigger class="course-map-panel-close" aria-label="Close course tee times">×</Drawer.CloseTrigger>
+      </Show>
+    </header>
+    <div class="course-map-panel-body" data-no-drag>
+      <strong>{selectedTimes().length} matching {selectedTimes().length === 1 ? 'time' : 'times'}</strong>
+      <Show when={selectedTimes().length} fallback={<p class="course-map-no-times">No tee times match the selected filters.</p>}>
+        <div class="course-map-time-list"><For each={selectedTimes()}>{(tee) => {
+          const option = () => shownOption(tee)
+          const price = () => option()?.price ?? tee.price
+          return <button type="button" classList={{ 'availability-best': (tee.availableSpots || 0) >= 4, 'availability-low': tee.availableSpots === 1 }} onClick={() => props.onSelectTeeTime(course, tee, price(), shownHoles(tee))}><strong>{tee.time}</strong><span><Show when={price() !== undefined}>{String.fromCharCode(36)}{price()} · </Show>{shownHoles(tee)} holes · {tee.availableSpots ? `${tee.availableSpots} ${tee.availableSpots === 1 ? 'spot' : 'spots'}` : 'Spots vary'}</span></button>
+        }}</For></div>
+      </Show>
+    </div>
+  </>
+
   return <div class="course-map-board" classList={{ 'course-map-fullscreen': mapFullscreen() }}>
     <div class="course-map-canvas" ref={container} aria-label="Map of golf courses" />
     <Show when={isToday()}><button type="button" class="course-map-radar-toggle" classList={{ active: radarEnabled() }} onClick={() => setRadarEnabled(!radarEnabled())} aria-pressed={radarEnabled()} title="Toggle current Doppler radar"><span aria-hidden="true">◉</span> Current Radar</button></Show>
@@ -399,27 +371,19 @@ export default function CourseMap(props: CourseMapProps) {
     <button type="button" class="course-map-fullscreen-toggle" onClick={() => setMapFullscreen(!mapFullscreen())} aria-label={mapFullscreen() ? 'Exit fullscreen map' : 'Open fullscreen map'} title={mapFullscreen() ? 'Exit fullscreen' : 'Fullscreen map'}><svg viewBox="0 0 24 24" aria-hidden="true"><Show when={mapFullscreen()} fallback={<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />}><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5" /></Show></svg></button>
     <Show when={mapError()}>{(message) => <div class="course-map-empty">{message()}</div>}</Show>
     <Show when={props.courses.every((course) => course.latitude === undefined || course.longitude === undefined)}><div class="course-map-empty">No course locations are available.</div></Show>
-    <Show when={selectedCourse()} keyed>{(course) => {
-      return <aside class={`course-map-panel sheet-${sheetPosition()}`} classList={{ 'sheet-dragging': sheetDragHeight() !== null }} style={sheetDragHeight() !== null ? { height: `${sheetDragHeight()}px` } : undefined} aria-label={`${course.name} tee times`}>
-        <div class="course-map-sheet-controls" onPointerDown={beginSheetDrag} onPointerMove={moveSheetDrag} onPointerUp={endSheetDrag} onPointerCancel={cancelSheetDrag}>
-          <button type="button" class="course-map-sheet-grabber" onClick={cycleSheet} onKeyDown={(event) => { if (event.key === 'ArrowUp') { event.preventDefault(); resizeSheet('up') } else if (event.key === 'ArrowDown') { event.preventDefault(); resizeSheet('down') } }} aria-label={`${sheetPosition() === 'full' ? 'Restore half-height' : 'Expand'} course tee times. Use up and down arrow keys to resize.`} aria-expanded={sheetPosition() === 'full'}><span /></button>
-        </div>
-        <header classList={{ 'has-image': Boolean(course.headerImageUrl) }} style={course.headerImageUrl ? { 'background-image': `linear-gradient(180deg, rgb(8 18 12 / 8%) 0%, rgb(8 18 12 / 82%) 100%), url("${course.headerImageUrl}")` } : undefined}>
-          <button type="button" class="course-avatar course-avatar-button" onClick={() => props.onSelectCourse(course)} aria-label={`View information about ${course.name}`}><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></button>
-          <div><button type="button" class="course-name course-name-button" onClick={() => props.onSelectCourse(course)}>{course.name}</button><p>{course.city}, {course.state}</p><CourseHours course={course} inline /></div>
-          <button type="button" class="course-map-panel-close" onClick={closeCourse} aria-label="Close course tee times">×</button>
-        </header>
-        <div class="course-map-panel-body">
-          <strong>{selectedTimes().length} matching {selectedTimes().length === 1 ? 'time' : 'times'}</strong>
-          <Show when={selectedTimes().length} fallback={<p class="course-map-no-times">No tee times match the selected filters.</p>}>
-            <div class="course-map-time-list"><For each={selectedTimes()}>{(tee) => {
-              const option = () => shownOption(tee)
-              const price = () => option()?.price ?? tee.price
-              return <button type="button" classList={{ 'availability-best': (tee.availableSpots || 0) >= 4, 'availability-low': tee.availableSpots === 1 }} onClick={() => props.onSelectTeeTime(course, tee, price(), shownHoles(tee))}><strong>{tee.time}</strong><span><Show when={price() !== undefined}>{String.fromCharCode(36)}{price()} · </Show>{shownHoles(tee)} holes · {tee.availableSpots ? `${tee.availableSpots} ${tee.availableSpots === 1 ? 'spot' : 'spots'}` : 'Spots vary'}</span></button>
-            }}</For></div>
-          </Show>
-        </div>
-      </aside>
-    }}</Show>
+    <Show when={selectedCourse()} keyed>{(course) => <Show when={!mobileLayout()}>
+      <aside class="course-map-panel" aria-label={`${course.name} tee times`}>{panelContents(course, false)}</aside>
+    </Show>}</Show>
+    <Show when={mobileLayout()}>
+      <Portal>
+        <Drawer.Root open={Boolean(selectedCourse())} snapPoints={MOBILE_SHEET_SNAP_POINTS} snapPoint={mobileSnapPoint()} onSnapPointChange={(details) => { if (details.snapPoint !== null) setMobileSnapPoint(details.snapPoint) }} swipeDirection="down" modal={false} closeOnInteractOutside={false} onOpenChange={(details) => { if (!details.open) closeCourse() }}>
+          <Drawer.Positioner class="course-map-drawer-positioner">
+            <Drawer.Content class="course-map-panel course-map-drawer" classList={{ 'is-entering': drawerEntering() }}>
+              <Show when={selectedCourse()} keyed>{(course) => panelContents(course, true)}</Show>
+            </Drawer.Content>
+          </Drawer.Positioner>
+        </Drawer.Root>
+      </Portal>
+    </Show>
   </div>
 }

@@ -10,10 +10,9 @@ export const appReleases: AppRelease[] = [
   {
     id: '2026-09-04-map-bottom-sheet',
     date: 'September 4, 2026',
-    title: 'More room for map results',
+    title: 'Better map results',
     changes: [
-      'The mobile map course sheet now floats over the page at collapsed, half-height, and fullscreen positions.',
-      'The sheet follows your finger while you drag, then settles into the nearest position; accessible expand and collapse controls remain available.',
+      'Drag map results up for a full-screen view.',
     ],
   },
   {
