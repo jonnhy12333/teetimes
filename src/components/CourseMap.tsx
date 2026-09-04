@@ -1,8 +1,9 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import { Drawer } from '@ark-ui/solid/drawer'
 import { Popover } from '@ark-ui/solid/popover'
+import { Tooltip } from '@ark-ui/solid/tooltip'
 import { Portal } from 'solid-js/web'
-import type { Course, TeeTime } from './Dashboard'
+import type { AvailabilityTrend, Course, TeeTime } from './Dashboard'
 import CourseHours from './CourseHours'
 import CourseAvatar from './CourseAvatar'
 import { loadMapsLibrary } from '../googleMaps'
@@ -12,6 +13,7 @@ interface CourseMapProps {
   selectedDate: string
   courses: Course[]
   timesByCourse: Record<string, TeeTime[]>
+  trendsByCourse: Record<string, AvailabilityTrend>
   selectedHoles: HoleFilter
   loadingCourseIds: string[]
   failedCourseIds: string[]
@@ -107,6 +109,18 @@ function radarTileUrl(coord: google.maps.Point, zoom: number) {
   return `https://mapservices.weather.noaa.gov/eventdriven/rest/services/radar/radar_base_reflectivity_time/ImageServer/exportImage?${params}`
 }
 
+function timeHourLabel(time: string) {
+  const match = time.trim().match(/^(\d{1,2}):\d{2}\s*(AM|PM)$/i)
+  return match ? `${Number(match[1])} ${match[2].toUpperCase()}` : time
+}
+
+function TrendIndicator(props: { trend: AvailabilityTrend }) {
+  return <Tooltip.Root openDelay={200} closeDelay={100} positioning={{ placement: 'bottom-start', gutter: 6 }}>
+    <Tooltip.Trigger class={`course-map-trend availability-trend-${props.trend.state}`} aria-label={`${props.trend.label}. ${props.trend.explanation}`}><i aria-hidden="true" />{props.trend.label}</Tooltip.Trigger>
+    <Portal><Tooltip.Positioner><Tooltip.Content class="course-map-trend-tooltip">{props.trend.explanation}</Tooltip.Content></Tooltip.Positioner></Portal>
+  </Tooltip.Root>
+}
+
 export default function CourseMap(props: CourseMapProps) {
   const [mapReady, setMapReady] = createSignal(false)
   const [mapError, setMapError] = createSignal('')
@@ -128,6 +142,14 @@ export default function CourseMap(props: CourseMapProps) {
 
   const selectedCourse = createMemo(() => props.courses.find((course) => course.id === selectedCourseId()))
   const selectedTimes = createMemo(() => selectedCourse() ? props.timesByCourse[selectedCourse()!.id] || [] : [])
+  const selectedTimeGroups = createMemo(() => {
+    const groups = new Map<string, TeeTime[]>()
+    selectedTimes().forEach((tee) => {
+      const label = timeHourLabel(tee.time)
+      groups.set(label, [...(groups.get(label) || []), tee])
+    })
+    return Array.from(groups, ([label, times]) => ({ label, times }))
+  })
   const isToday = createMemo(() => props.selectedDate === new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()))
 
   const chooseCourse = (course: Course) => {
@@ -348,19 +370,18 @@ export default function CourseMap(props: CourseMapProps) {
     </Show>
     <header classList={{ 'has-image': Boolean(course.headerImageUrl) }} style={course.headerImageUrl ? { 'background-image': `linear-gradient(180deg, rgb(8 18 12 / 8%) 0%, rgb(8 18 12 / 82%) 100%), url("${course.headerImageUrl}")` } : undefined}>
       <button type="button" class="course-avatar-button" onClick={() => props.onSelectCourse(course)} aria-label={`View information about ${course.name}`}><CourseAvatar name={course.name} logoUrl={course.logoUrl} /></button>
-      <div><button type="button" class="course-name course-name-button" onClick={() => props.onSelectCourse(course)}>{course.name}</button><p>{course.city}, {course.state}</p><CourseHours course={course} inline /></div>
+      <div class="course-map-panel-identity"><button type="button" class="course-name course-name-button" onClick={() => props.onSelectCourse(course)}>{course.name}</button><div class="course-map-panel-meta"><p>{course.city}, {course.state}</p><CourseHours course={course} inline /></div><Show when={props.trendsByCourse[course.id]}>{(trend) => <TrendIndicator trend={trend()} />}</Show></div>
       <Show when={mobile} fallback={<Popover.CloseTrigger class="course-map-panel-close" aria-label="Close course tee times">×</Popover.CloseTrigger>}>
         <Drawer.CloseTrigger class="course-map-panel-close" aria-label="Close course tee times">×</Drawer.CloseTrigger>
       </Show>
     </header>
     <div class="course-map-panel-body" data-no-drag>
-      <strong>{selectedTimes().length} matching {selectedTimes().length === 1 ? 'time' : 'times'}</strong>
       <Show when={selectedTimes().length} fallback={<p class="course-map-no-times">No tee times match the selected filters.</p>}>
-        <div class="course-map-time-list"><For each={selectedTimes()}>{(tee) => {
-          const option = () => shownOption(tee)
-          const price = () => option()?.price ?? tee.price
-          return <button type="button" classList={{ 'availability-best': (tee.availableSpots || 0) >= 4, 'availability-low': tee.availableSpots === 1 }} onClick={() => props.onSelectTeeTime(course, tee, price(), shownHoles(tee))}><strong>{tee.time}</strong><span><Show when={price() !== undefined}>{String.fromCharCode(36)}{price()} · </Show>{shownHoles(tee)} holes · {tee.availableSpots ? `${tee.availableSpots} ${tee.availableSpots === 1 ? 'spot' : 'spots'}` : 'Spots vary'}</span></button>
-        }}</For></div>
+        <div class="course-map-agenda"><For each={selectedTimeGroups()}>{(group) => <section class="course-map-hour-group"><h3>{group.label}</h3><div class="course-map-time-list"><For each={group.times}>{(tee) => {
+            const option = () => shownOption(tee)
+            const price = () => option()?.price ?? tee.price
+            return <button type="button" classList={{ 'availability-best': (tee.availableSpots || 0) >= 4, 'availability-low': tee.availableSpots === 1 }} onClick={() => props.onSelectTeeTime(course, tee, price(), shownHoles(tee))}><strong>{tee.time}</strong><span><Show when={price() !== undefined}>{String.fromCharCode(36)}{price()} · </Show>{shownHoles(tee)} holes · {tee.availableSpots ? `${tee.availableSpots} ${tee.availableSpots === 1 ? 'spot' : 'spots'}` : 'Spots vary'}</span></button>
+          }}</For></div></section>}</For></div>
       </Show>
     </div>
   </>

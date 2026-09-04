@@ -14,6 +14,7 @@ export const appReleases: AppRelease[] = [
     changes: [
       'Drag map results up for a full-screen view.',
       'Desktop map results now open in a smoother floating panel.',
+      'Course panels now group times by hour and scroll more smoothly on mobile.',
       'Tee-time details and What’s New now open more smoothly.',
       'Results now show when they’re updating, and missing course logos fall back cleanly.',
     ],
