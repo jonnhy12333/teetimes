@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, 
 import type { JSX } from 'solid-js'
 import { appReleases, latestReleaseId } from '../releases'
 import CourseHours from './CourseHours'
+import GoogleMapsPlaceLink from './GoogleMapsPlaceLink'
 
 const CourseMap = lazy(() => import('./CourseMap'))
 
@@ -221,7 +222,7 @@ function CourseInfoModal(props: { course: Course; onClose: () => void }) {
         <Show when={details()?.amenities?.length}><section class="course-info-section"><h3>Amenities</h3><div class="course-info-amenities"><For each={details()!.amenities}>{(amenity) => <span>{amenity}</span>}</For></div></section></Show>
         <section class="course-info-section course-info-contact"><h3>Course details</h3><Show when={details()?.address}><p>{details()!.address}</p></Show><Show when={details()?.phone}><a href={`tel:${details()!.phone}`}>{details()!.phone}</a></Show><Show when={!details()?.address && !details()?.phone}><p>{props.course.city}, {props.course.state}</p></Show></section>
       </div>
-      <footer class="course-info-actions"><a href={googleMapsUrl(props.course)} target="_blank" rel="noreferrer">Directions</a><Show when={props.course.websiteUrl}><a href={props.course.websiteUrl} target="_blank" rel="noreferrer">Course website</a></Show><a class="primary" href={props.course.bookingUrl} target="_blank" rel="noreferrer">Booking site</a></footer>
+      <footer class="course-info-actions"><GoogleMapsPlaceLink course={props.course} /><a href={googleMapsUrl(props.course)} target="_blank" rel="noreferrer">Directions</a><Show when={props.course.websiteUrl}><a href={props.course.websiteUrl} target="_blank" rel="noreferrer">Course website</a></Show><a class="primary" href={props.course.bookingUrl} target="_blank" rel="noreferrer">Booking site</a></footer>
     </section>
   </div>
 }

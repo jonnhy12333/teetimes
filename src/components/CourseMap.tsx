@@ -165,7 +165,7 @@ export default function CourseMap(props: CourseMapProps) {
     if (height !== null) {
       const stops: Array<[SheetPosition, number]> = [['collapsed', 154], ['half', window.innerHeight * .62], ['full', window.innerHeight]]
       setSheetPosition(stops.reduce((nearest, stop) => Math.abs(stop[1] - height) < Math.abs(nearest[1] - height) ? stop : nearest)[0])
-      setSheetDragHeight(null)
+      requestAnimationFrame(() => setSheetDragHeight(null))
     }
     setTimeout(() => { sheetWasDragged = false }, 0)
   }

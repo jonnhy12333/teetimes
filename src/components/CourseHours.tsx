@@ -2,7 +2,7 @@ import { createEffect, createSignal, onCleanup, Show } from 'solid-js'
 import { loadPlacesLibrary } from '../googleMaps'
 import type { Course } from './Dashboard'
 
-interface CourseHoursData { businessStatus?: string; currentHours: google.maps.places.OpeningHours; regularHours?: google.maps.places.OpeningHours | null; utcOffsetMinutes: number }
+interface CourseHoursData { place: google.maps.places.Place; businessStatus?: string; currentHours: google.maps.places.OpeningHours; regularHours?: google.maps.places.OpeningHours | null; utcOffsetMinutes: number }
 interface CourseHoursResult { openNow?: boolean; status: string; hours: string; label: string }
 
 const cache = new Map<string, { expires: number; value: CourseHoursData | null }>()
@@ -46,7 +46,7 @@ async function fetchCourseHours(course: Course): Promise<CourseHoursData | null>
   const { Place } = await loadPlacesLibrary()
   const { places } = await Place.searchByText({
     textQuery: `${course.name}, ${course.details?.address || `${course.city}, ${course.state}`}`,
-    fields: ['displayName', 'location', 'businessStatus', 'currentOpeningHours', 'regularOpeningHours', 'utcOffsetMinutes'],
+    fields: ['id', 'displayName', 'location', 'googleMapsURI', 'businessStatus', 'currentOpeningHours', 'regularOpeningHours', 'utcOffsetMinutes'],
     locationBias: course.latitude !== undefined && course.longitude !== undefined ? { lat: course.latitude, lng: course.longitude } : undefined,
     language: 'en-US', region: 'us', maxResultCount: 1,
   })
@@ -57,11 +57,15 @@ async function fetchCourseHours(course: Course): Promise<CourseHoursData | null>
     return null
   }
   const value = {
-    businessStatus: String(place.businessStatus), currentHours: hours,
+    place, businessStatus: String(place.businessStatus), currentHours: hours,
     regularHours: place.regularOpeningHours, utcOffsetMinutes: place.utcOffsetMinutes,
   }
   cache.set(course.id, { expires: Date.now() + cacheDuration, value })
   return value
+}
+
+export async function findGooglePlace(course: Course) {
+  return (await fetchCourseHours(course))?.place || null
 }
 
 function describeHours(data: CourseHoursData, date?: string): CourseHoursResult {
