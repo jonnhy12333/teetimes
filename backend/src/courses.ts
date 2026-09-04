@@ -526,6 +526,8 @@ export const courses: CourseConfig[] = [
     latitude: 42.92218,
     longitude: -70.9822,
     timeZone: 'America/New_York',
+    logoUrl: '/course-logos/apple-hill.png',
+    headerImageUrl: '/course-headers/apple-hill.png',
     details: {
       type: 'Public', holes: 18,
       address: '69 East Road, East Kingston, NH 03827', phone: '(603) 642-4414',
@@ -547,6 +549,8 @@ export const courses: CourseConfig[] = [
     latitude: 42.88637,
     longitude: -71.42416,
     timeZone: 'America/New_York',
+    logoUrl: '/course-logos/londonderry.png',
+    headerImageUrl: '/course-headers/londonderry.jpg',
     details: {
       type: 'Public', holes: 18, par: 62, yardageMax: 3840,
       address: '56 Kimball Road, Londonderry, NH 03053', phone: '(603) 432-9789',
@@ -569,6 +573,8 @@ export const courses: CourseConfig[] = [
     latitude: 43.04544,
     longitude: -71.31587,
     timeZone: 'America/New_York',
+    logoUrl: '/course-logos/candia-woods.png',
+    headerImageUrl: '/course-headers/candia-woods.jpg',
     details: {
       type: 'Public', holes: 18, par: 71, yardageMax: 6550,
       address: '313 South Road, Candia, NH 03034', phone: '(603) 483-2307',
