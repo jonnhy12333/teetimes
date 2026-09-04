@@ -111,6 +111,7 @@ export default function CourseMap(props: CourseMapProps) {
   const [mapFullscreen, setMapFullscreen] = createSignal(false)
   const [radarEnabled, setRadarEnabled] = createSignal(false)
   const [sheetPosition, setSheetPosition] = createSignal<SheetPosition>('half')
+  const [mobileLayout, setMobileLayout] = createSignal(false)
   let sheetDragStartY = 0
   let sheetWasDragged = false
   let container!: HTMLDivElement
@@ -171,6 +172,10 @@ export default function CourseMap(props: CourseMapProps) {
 
   onMount(() => {
     let disposed = false
+    const mobileQuery = window.matchMedia('(max-width: 700px)')
+    const updateMobileLayout = () => setMobileLayout(mobileQuery.matches)
+    updateMobileLayout()
+    mobileQuery.addEventListener('change', updateMobileLayout)
     const closeFullscreen = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
       if (sheetPosition() === 'full') setSheetPosition('half')
@@ -195,6 +200,7 @@ export default function CourseMap(props: CourseMapProps) {
       mapClickListener?.remove()
       mapClickListener = undefined
       map = undefined
+      mobileQuery.removeEventListener('change', updateMobileLayout)
       document.removeEventListener('keydown', closeFullscreen)
     })
   })
@@ -339,7 +345,7 @@ export default function CourseMap(props: CourseMapProps) {
   })
 
   createEffect(() => {
-    if (sheetPosition() !== 'full') return
+    if (!selectedCourseId() || !mobileLayout()) return
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     onCleanup(() => { document.body.style.overflow = previousOverflow })

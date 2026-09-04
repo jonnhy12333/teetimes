@@ -1654,7 +1654,7 @@ a.weather-chip:focus-visible {
   .timeline-fullscreen .timeline-floating-controls .timeline-zoom-controls { display: inline-flex; }
   .course-map-board, .course-map-canvas { min-height: 420px; }
   .course-map-fullscreen-toggle { bottom: auto; top: 12px; }
-  .course-map-panel { border: 0; border-radius: 16px 16px 0 0; bottom: 0; height: 62%; left: 0; max-height: none; right: 0; top: auto; transition: height .24s cubic-bezier(.2, .75, .25, 1); width: 100%; }
+  .course-map-panel { border: 0; border-radius: 16px 16px 0 0; bottom: 0; height: 62dvh; left: 0; max-height: none; position: fixed; right: 0; top: auto; transition: height .24s cubic-bezier(.2, .75, .25, 1); width: 100vw; z-index: 250; }
   .course-map-panel.sheet-collapsed { height: 154px; }
   .course-map-panel.sheet-full { border-radius: 0; height: 100dvh; inset: 0; position: fixed; width: 100vw; z-index: 250; }
   .course-map-sheet-controls { background: var(--panel); display: flex; flex: 0 0 20px; touch-action: none; }
