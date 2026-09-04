@@ -1658,16 +1658,20 @@ a.weather-chip:focus-visible {
   .timeline-fullscreen .timeline-floating-controls .timeline-zoom-controls { display: inline-flex; }
   .course-map-board, .course-map-canvas { min-height: 420px; }
   .course-map-fullscreen-toggle { bottom: auto; top: 12px; }
-  .course-map-drawer-backdrop { background: transparent; inset: 0; position: fixed; z-index: 249; }
+  .course-map-drawer-backdrop { background: rgb(8 18 12 / 12%); inset: 0; position: fixed; z-index: 249; }
+  .course-map-drawer-backdrop[data-state='open'] { animation: course-map-backdrop-in .28s ease-out; }
+  .course-map-drawer-backdrop[data-state='closed'] { animation: course-map-backdrop-out .22s ease-in; }
   .course-map-drawer-positioner { align-items: flex-end; display: flex; inset: 0; pointer-events: none; position: fixed; z-index: 250; }
   .course-map-drawer-positioner[hidden], .course-map-panel.course-map-drawer[hidden] { display: none; }
-  .course-map-panel.course-map-drawer { border: 0; border-radius: 16px 16px 0 0; height: 100dvh; inset: auto 0 0; max-height: none; pointer-events: auto; position: absolute; transition: transform .24s cubic-bezier(.2, .75, .25, 1); width: 100vw; }
+  .course-map-panel.course-map-drawer { border: 0; border-radius: 16px 16px 0 0; height: 100dvh; inset: auto 0 0; max-height: none; overscroll-behavior-y: none; pointer-events: auto; position: absolute; transition: transform .24s cubic-bezier(.2, .75, .25, 1); width: 100vw; }
   .course-map-panel.course-map-drawer[data-state='open'] { animation: course-map-drawer-in .28s cubic-bezier(.2, .75, .25, 1); }
   .course-map-panel.course-map-drawer[data-state='closed'] { animation: course-map-drawer-out .22s ease-in; }
   .course-map-panel.course-map-drawer[data-expanded] { border-radius: 0; }
   .course-map-sheet-controls { align-items: center; background: var(--panel); cursor: grab; display: flex; flex: 0 0 20px; justify-content: center; touch-action: none; }
   .course-map-sheet-controls:active { cursor: grabbing; }
   .course-map-sheet-grabber { background: color-mix(in srgb, var(--muted) 52%, transparent); border-radius: 999px; height: 4px; width: 38px; }
+  .course-map-drawer > header { touch-action: none; user-select: none; }
+  .course-map-drawer .course-map-panel-body { overscroll-behavior-y: contain; }
   .course-map-panel > header.has-image { min-height: 100px; padding-top: 38px; }
   .course-map-panel > header > div { overflow: hidden; }
   .course-map-panel .course-name-button { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1687,8 +1691,8 @@ a.weather-chip:focus-visible {
 }
 
 @keyframes course-map-drawer-in {
-  from { transform: translate3d(0, 100%, 0); }
-  to { transform: translate3d(var(--drawer-translate-x, 0), var(--drawer-translate-y, 0), 0); }
+  from { opacity: .7; transform: translate3d(0, 100%, 0); }
+  to { opacity: 1; transform: translate3d(0, calc(100dvh - 500px), 0); }
 }
 
 @keyframes course-map-drawer-out {
@@ -1696,6 +1700,9 @@ a.weather-chip:focus-visible {
   70% { opacity: 1; }
   to { opacity: 0; transform: translate3d(0, 100%, 0); }
 }
+
+@keyframes course-map-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes course-map-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
 
 @keyframes dialog-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dialog-fade-out { from { opacity: 1; } to { opacity: 0; } }

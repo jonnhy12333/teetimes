@@ -373,7 +373,7 @@ export default function CourseMap(props: CourseMapProps) {
     </Show>}</Show>
     <Show when={mobileLayout()}>
       <Portal>
-        <Drawer.Root open={drawerOpen()} snapPoints={MOBILE_SHEET_SNAP_POINTS} snapPoint={mobileSnapPoint()} onSnapPointChange={(details) => { if (details.snapPoint !== null) setMobileSnapPoint(details.snapPoint) }} swipeDirection="down" closeOnInteractOutside={false} onOpenChange={(details) => setDrawerOpen(details.open)} onExitComplete={() => setSelectedCourseId(null)}>
+        <Drawer.Root open={drawerOpen()} snapPoints={MOBILE_SHEET_SNAP_POINTS} snapPoint={mobileSnapPoint()} onSnapPointChange={(details) => { if (details.snapPoint !== null) setMobileSnapPoint(details.snapPoint) }} swipeDirection="down" onOpenChange={(details) => setDrawerOpen(details.open)} onExitComplete={() => setSelectedCourseId(null)}>
           <Drawer.Backdrop class="course-map-drawer-backdrop" />
           <Drawer.Positioner class="course-map-drawer-positioner">
             <Drawer.Content class="course-map-panel course-map-drawer">
