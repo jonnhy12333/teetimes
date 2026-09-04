@@ -1601,7 +1601,6 @@ a.weather-chip:focus-visible {
   .course-info-actions a.primary { grid-column: 1 / -1; grid-row: 1; }
 }
 
-.app-drawer-indent { min-height: 100dvh; }
 .unavailable-results { margin-top: 22px; }
 .unavailable-heading { align-items: baseline; display: flex; gap: 10px; justify-content: space-between; margin: 0 2px 8px; }
 .unavailable-heading h3 { font-size: 15px; }
@@ -1630,8 +1629,6 @@ a.weather-chip:focus-visible {
 }
 
 @media (max-width: 700px) {
-  .app-drawer-indent { background: var(--bg); position: relative; transform-origin: top center; transition: border-radius .28s cubic-bezier(.2, .75, .25, 1), transform .28s cubic-bezier(.2, .75, .25, 1); z-index: 1; }
-  body:has(.course-map-drawer-positioner[data-state='open']:not([hidden])) .app-drawer-indent { border-radius: 14px; overflow: clip; transform: translateY(10px) scale(.96); }
   .timeline-scroll { --timeline-course-width: 220px; }
   .container:has(.search-results) { padding: 8px; }
   .container:has(.search-results) .search-dashboard { gap: 8px; padding-bottom: 0; }
@@ -1661,10 +1658,12 @@ a.weather-chip:focus-visible {
   .timeline-fullscreen .timeline-floating-controls .timeline-zoom-controls { display: inline-flex; }
   .course-map-board, .course-map-canvas { min-height: 420px; }
   .course-map-fullscreen-toggle { bottom: auto; top: 12px; }
+  .course-map-drawer-backdrop { background: transparent; inset: 0; position: fixed; z-index: 249; }
   .course-map-drawer-positioner { align-items: flex-end; display: flex; inset: 0; pointer-events: none; position: fixed; z-index: 250; }
   .course-map-drawer-positioner[hidden], .course-map-panel.course-map-drawer[hidden] { display: none; }
-  .course-map-panel.course-map-drawer { border: 0; border-radius: 16px 16px 0 0; height: 100dvh; inset: auto 0 0; max-height: none; position: absolute; transition: transform .24s cubic-bezier(.2, .75, .25, 1); width: 100vw; }
-  .course-map-panel.course-map-drawer.is-entering { animation: course-map-drawer-in .28s cubic-bezier(.2, .75, .25, 1); }
+  .course-map-panel.course-map-drawer { border: 0; border-radius: 16px 16px 0 0; height: 100dvh; inset: auto 0 0; max-height: none; pointer-events: auto; position: absolute; transition: transform .24s cubic-bezier(.2, .75, .25, 1); width: 100vw; }
+  .course-map-panel.course-map-drawer[data-state='open'] { animation: course-map-drawer-in .28s cubic-bezier(.2, .75, .25, 1); }
+  .course-map-panel.course-map-drawer[data-state='closed'] { animation: course-map-drawer-out .22s ease-in; }
   .course-map-panel.course-map-drawer[data-expanded] { border-radius: 0; }
   .course-map-sheet-controls { align-items: center; background: var(--panel); cursor: grab; display: flex; flex: 0 0 20px; justify-content: center; touch-action: none; }
   .course-map-sheet-controls:active { cursor: grabbing; }
@@ -1690,6 +1689,12 @@ a.weather-chip:focus-visible {
 @keyframes course-map-drawer-in {
   from { transform: translate3d(0, 100%, 0); }
   to { transform: translate3d(var(--drawer-translate-x, 0), var(--drawer-translate-y, 0), 0); }
+}
+
+@keyframes course-map-drawer-out {
+  from { opacity: 1; transform: translate3d(var(--drawer-translate-x, 0), var(--drawer-translate-y, 0), 0); }
+  70% { opacity: 1; }
+  to { opacity: 0; transform: translate3d(0, 100%, 0); }
 }
 
 @keyframes dialog-fade-in { from { opacity: 0; } to { opacity: 1; } }

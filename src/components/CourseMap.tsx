@@ -114,8 +114,7 @@ export default function CourseMap(props: CourseMapProps) {
   const [radarEnabled, setRadarEnabled] = createSignal(false)
   const [mobileLayout, setMobileLayout] = createSignal(false)
   const [mobileSnapPoint, setMobileSnapPoint] = createSignal<number | string>('500px')
-  const [drawerEntering, setDrawerEntering] = createSignal(false)
-  let drawerEnterTimer: ReturnType<typeof setTimeout> | undefined
+  const [drawerOpen, setDrawerOpen] = createSignal(false)
   let container!: HTMLDivElement
   let map: google.maps.Map | undefined
   let mapClickListener: google.maps.MapsEventListener | undefined
@@ -130,14 +129,13 @@ export default function CourseMap(props: CourseMapProps) {
 
   const chooseCourse = (course: Course) => {
     setMobileSnapPoint('500px')
-    setDrawerEntering(true)
-    clearTimeout(drawerEnterTimer)
-    drawerEnterTimer = setTimeout(() => setDrawerEntering(false), 300)
     setSelectedCourseId(course.id)
+    setDrawerOpen(true)
   }
 
   const closeCourse = () => {
-    setSelectedCourseId(null)
+    if (mobileLayout()) setDrawerOpen(false)
+    else setSelectedCourseId(null)
   }
 
   onMount(() => {
@@ -163,7 +161,6 @@ export default function CourseMap(props: CourseMapProps) {
         if (radarIndex >= 0) map.overlayMapTypes.removeAt(radarIndex)
       }
       radarOverlay = undefined
-      clearTimeout(drawerEnterTimer)
       mapClickListener?.remove()
       mapClickListener = undefined
       map = undefined
@@ -376,9 +373,10 @@ export default function CourseMap(props: CourseMapProps) {
     </Show>}</Show>
     <Show when={mobileLayout()}>
       <Portal>
-        <Drawer.Root open={Boolean(selectedCourse())} snapPoints={MOBILE_SHEET_SNAP_POINTS} snapPoint={mobileSnapPoint()} onSnapPointChange={(details) => { if (details.snapPoint !== null) setMobileSnapPoint(details.snapPoint) }} swipeDirection="down" modal={false} closeOnInteractOutside={false} onOpenChange={(details) => { if (!details.open) closeCourse() }}>
+        <Drawer.Root open={drawerOpen()} snapPoints={MOBILE_SHEET_SNAP_POINTS} snapPoint={mobileSnapPoint()} onSnapPointChange={(details) => { if (details.snapPoint !== null) setMobileSnapPoint(details.snapPoint) }} swipeDirection="down" closeOnInteractOutside={false} onOpenChange={(details) => setDrawerOpen(details.open)} onExitComplete={() => setSelectedCourseId(null)}>
+          <Drawer.Backdrop class="course-map-drawer-backdrop" />
           <Drawer.Positioner class="course-map-drawer-positioner">
-            <Drawer.Content class="course-map-panel course-map-drawer" classList={{ 'is-entering': drawerEntering() }}>
+            <Drawer.Content class="course-map-panel course-map-drawer">
               <Show when={selectedCourse()} keyed>{(course) => panelContents(course, true)}</Show>
             </Drawer.Content>
           </Drawer.Positioner>
