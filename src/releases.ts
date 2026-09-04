@@ -10,9 +10,11 @@ export const appReleases: AppRelease[] = [
   {
     id: '2026-09-04-map-bottom-sheet',
     date: 'September 4, 2026',
-    title: 'Better map results',
+    title: 'Smoother browsing',
     changes: [
       'Drag map results up for a full-screen view.',
+      'Tee-time details and What’s New now open more smoothly.',
+      'Results now show when they’re updating, and missing course logos fall back cleanly.',
     ],
   },
   {

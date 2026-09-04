@@ -3,6 +3,7 @@ import { Drawer } from '@ark-ui/solid/drawer'
 import { Portal } from 'solid-js/web'
 import type { Course, TeeTime } from './Dashboard'
 import CourseHours from './CourseHours'
+import CourseAvatar from './CourseAvatar'
 import { loadMapsLibrary } from '../googleMaps'
 
 type HoleFilter = 'any' | 9 | 18
@@ -343,7 +344,7 @@ export default function CourseMap(props: CourseMapProps) {
       </Drawer.Grabber>
     </Show>
     <header classList={{ 'has-image': Boolean(course.headerImageUrl) }} style={course.headerImageUrl ? { 'background-image': `linear-gradient(180deg, rgb(8 18 12 / 8%) 0%, rgb(8 18 12 / 82%) 100%), url("${course.headerImageUrl}")` } : undefined}>
-      <button type="button" class="course-avatar course-avatar-button" onClick={() => props.onSelectCourse(course)} aria-label={`View information about ${course.name}`}><Show when={course.logoUrl} fallback={course.name.charAt(0)}>{(logo) => <img src={logo()} alt="" />}</Show></button>
+      <button type="button" class="course-avatar-button" onClick={() => props.onSelectCourse(course)} aria-label={`View information about ${course.name}`}><CourseAvatar name={course.name} logoUrl={course.logoUrl} /></button>
       <div><button type="button" class="course-name course-name-button" onClick={() => props.onSelectCourse(course)}>{course.name}</button><p>{course.city}, {course.state}</p><CourseHours course={course} inline /></div>
       <Show when={mobile} fallback={<button type="button" class="course-map-panel-close" onClick={closeCourse} aria-label="Close course tee times">×</button>}>
         <Drawer.CloseTrigger class="course-map-panel-close" aria-label="Close course tee times">×</Drawer.CloseTrigger>
