@@ -957,12 +957,12 @@ function formatTimeLabel(value: string, timeZone?: string) {
   })
 }
 
-function getDaysFromToday(date: string) {
-  const today = new Date()
-  const targetDate = new Date(`${date}T00:00:00`)
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-
-  return Math.max(0, Math.round((targetDate.getTime() - todayStart.getTime()) / 86400000))
+function getDaysFromToday(date: string, timeZone: string) {
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+  // Compare calendar dates in UTC to avoid daylight saving offsets.
+  return Math.round((Date.parse(date + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000)
 }
 
 async function getForeUpTeeTimes(course: CourseConfig, date: string): Promise<TeeTime[]> {
@@ -1026,52 +1026,65 @@ async function getEasyTeeTimes(course: CourseConfig, date: string): Promise<TeeT
     return []
   }
 
-  const days = getDaysFromToday(date)
-  const pageUrl = `https://app.easyteegolf.com/course/${course.easyTee.slug}/?days=${days}`
-  const response = await fetch(pageUrl, {
-    headers: {
-      Accept: 'text/html',
-    },
-  })
+  const days = getDaysFromToday(date, course.timeZone || 'America/New_York')
+  if (!Number.isFinite(days)) throw new Error('Invalid Easy Tee date')
+  if (days < 0) return []
 
-  if (!response.ok) {
-    throw new Error(`Easy Tee request failed with ${response.status}`)
-  }
+  const expectedDate = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+  }).format(new Date(date + 'T00:00:00Z'))
+  const pages = await Promise.all(([18, 9] as const).map(async (holes) => {
+    const pageUrl = `https://app.easyteegolf.com/course/${course.easyTee!.slug}/?days=${days}&p=${holes === 9 ? 'yes' : 'no'}`
+    const response = await fetch(pageUrl, {
+      headers: {
+        Accept: 'text/html',
+      },
+    })
 
-  const html = await response.text()
-  const $ = cheerio.load(html)
-
-  return $('.list-group-item').map((index, element) => {
-    const item = $(element)
-    const time = item.find('h3.font-weight-bold').first().text().trim()
-    const playerRange = item.find('h6.text-muted').first().text().trim()
-    const priceText = item.find('.col-auto h3').first().text().trim()
-    const holesText = item.find('.badge').first().text().trim()
-    const spotsMatch = playerRange.match(/-\s*(\d+)\s+golfers?/i) || playerRange.match(/(\d+)\s+golfers?/i)
-    const holesMatch = holesText.match(/(9|18)/)
-    const priceMatch = priceText.match(/\$([0-9]+(?:\.[0-9]+)?)/)
-
-    if (!time || !holesMatch) {
-      return null
+    if (!response.ok) {
+      throw new Error(`Easy Tee request failed with ${response.status}`)
     }
 
-    const teeTime: TeeTime = {
-      id: `${course.id}-${date}-${index}`,
-      courseId: course.id,
-      courseName: course.name,
-      time,
-      date,
-      holes: Number(holesMatch[1]) as 9 | 18,
-      price: priceMatch ? Number(priceMatch[1]) : undefined,
-      options: [{ holes: Number(holesMatch[1]) as 9 | 18, price: priceMatch ? Number(priceMatch[1]) : undefined }],
-      availableSpots: spotsMatch ? Number(spotsMatch[1]) : undefined,
-      bookingUrl: course.bookingUrl,
-      authRequired: false,
-      authType: course.authType,
-    }
+    const html = await response.text()
+    const $ = cheerio.load(html)
+    const displayedDate = $('#dropdownMenuButton').text().replace(/\s+/g, ' ').trim()
+    if (!displayedDate) throw new Error('Easy Tee page is missing its selected date')
+    // Out-of-window requests silently return today's page with HTTP 200.
+    if (displayedDate !== expectedDate) return []
 
-    return teeTime
-  }).get().filter((teeTime): teeTime is TeeTime => teeTime !== null)
+    return $('.list-group-item').map((index, element) => {
+      const item = $(element)
+      const time = item.find('h3.font-weight-bold').first().text().trim()
+      const playerRange = item.find('h6.text-muted').first().text().trim()
+      const priceText = item.find('.col-auto h3').first().text().trim()
+      const holesText = item.find('.badge').first().text().trim()
+      const spotsMatch = playerRange.match(/-\s*(\d+)\s+golfers?/i) || playerRange.match(/(\d+)\s+golfers?/i)
+      const holesMatch = holesText.match(/(9|18)/)
+      const priceMatch = priceText.match(/\$([0-9]+(?:\.[0-9]+)?)/)
+
+      if (!time || !holesMatch) {
+        return null
+      }
+
+      const teeTime: TeeTime = {
+        id: `${course.id}-${date}-${holes}-${index}`,
+        courseId: course.id,
+        courseName: course.name,
+        time,
+        date,
+        holes: Number(holesMatch[1]) as 9 | 18,
+        price: priceMatch ? Number(priceMatch[1]) : undefined,
+        options: [{ holes: Number(holesMatch[1]) as 9 | 18, price: priceMatch ? Number(priceMatch[1]) : undefined }],
+        availableSpots: spotsMatch ? Number(spotsMatch[1]) : undefined,
+        bookingUrl: pageUrl,
+        authRequired: false,
+        authType: course.authType,
+      }
+
+      return teeTime
+    }).get().filter((teeTime): teeTime is TeeTime => teeTime !== null)
+  }))
+  return pages.flat()
 }
 
 async function getSupremeGolfTeeTimes(course: CourseConfig, date: string): Promise<TeeTime[]> {

@@ -8,6 +8,16 @@ export interface AppRelease {
 // Add the newest user-facing release first before pushing an app update.
 export const appReleases: AppRelease[] = [
   {
+    id: '2026-09-21-granite-fields',
+    date: 'September 21, 2026',
+    title: 'More accurate Granite Fields tee times',
+    changes: [
+      'Granite Fields now includes both 9-hole and 18-hole availability and prices.',
+      'Fixed incorrect tee times appearing for dates outside the Granite Fields booking window.',
+      'Improved date accuracy around midnight and daylight saving changes.',
+    ],
+  },
+  {
     id: '2026-09-04-map-bottom-sheet',
     date: 'September 4, 2026',
     title: 'Smoother browsing',
