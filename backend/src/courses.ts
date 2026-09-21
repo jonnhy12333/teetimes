@@ -1042,7 +1042,15 @@ async function getEasyTeeTimes(course: CourseConfig, date: string): Promise<TeeT
     })
 
     if (!response.ok) {
-      throw new Error(`Easy Tee request failed with ${response.status}`)
+      const errorHtml = await response.text()
+      const title = cheerio.load(errorHtml)('title').text().replace(/\s+/g, ' ').trim().slice(0, 100)
+      const diagnostics = {
+        server: response.headers.get('server'),
+        mitigation: response.headers.get('cf-mitigated'),
+        ray: response.headers.get('cf-ray'),
+        title,
+      }
+      throw new Error(`Easy Tee request failed with ${response.status}: ${JSON.stringify(diagnostics)}`)
     }
 
     const html = await response.text()

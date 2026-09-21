@@ -176,6 +176,7 @@ app.get('/api/courses/:id/tee-times', async (req, res) => {
     if (!bypassCache) res.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=900, stale-if-error=86400')
     res.json(teeTimes)
   } catch (error) {
+    console.error(`Tee-time lookup failed for ${id} on ${requestedDate}`, error)
     if (course) await recordSnapshotSafely(course, requestedDate, [], 'lookup', 'error', error)
     res.status(500).json({ error: 'Failed to fetch tee times' })
   }
