@@ -683,7 +683,12 @@ export default function Dashboard() {
           const query = new URLSearchParams({ date })
           if (options.bypassCache) query.set('refresh', '1')
           const response = await fetch(`${apiBaseUrl}/api/courses/${course.id}/tee-times?${query}`)
-          if (!response.ok) throw new Error()
+          if (!response.ok) {
+            const failure = await response.json().catch(() => null) as { error?: string; details?: string } | null
+            const message = typeof failure?.details === 'string' ? failure.details
+              : typeof failure?.error === 'string' ? failure.error : 'Failed to fetch tee times'
+            throw new Error(`HTTP ${response.status}: ${message}`)
+          }
           const times = await response.json() as TeeTime[]
           if (request === loadRequest) {
             successfulCourses += 1
@@ -691,7 +696,10 @@ export default function Dashboard() {
             setFailedCourseIds((ids) => ids.filter((id) => id !== course.id))
           }
         }
-        catch { if (request === loadRequest && !options.background) setFailedCourseIds((ids) => [...ids, course.id]) }
+        catch (error) {
+          console.error(`Tee-time lookup failed for ${course.name} (${course.id}) on ${date}`, error)
+          if (request === loadRequest && !options.background) setFailedCourseIds((ids) => [...ids, course.id])
+        }
         finally { if (request === loadRequest && !options.background) setLoadingCourseIds((ids) => ids.filter((id) => id !== course.id)) }
       }))
       try {

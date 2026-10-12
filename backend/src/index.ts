@@ -178,7 +178,13 @@ app.get('/api/courses/:id/tee-times', async (req, res) => {
   } catch (error) {
     console.error(`Tee-time lookup failed for ${id} on ${requestedDate}`, error)
     if (course) await recordSnapshotSafely(course, requestedDate, [], 'lookup', 'error', error)
-    res.status(500).json({ error: 'Failed to fetch tee times' })
+    // Easy Tee diagnostics contain only the upstream status and public response
+    // headers/title. Keep arbitrary provider errors and stack traces server-side.
+    const details = error instanceof Error && /^Easy Tee (request failed with \d{3}:|page is missing its selected date$)/.test(error.message)
+      ? error.message
+      : undefined
+    res.set('Cache-Control', 'no-store')
+    res.status(500).json({ error: 'Failed to fetch tee times', details })
   }
 })
 

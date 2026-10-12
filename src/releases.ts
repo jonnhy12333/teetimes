@@ -8,6 +8,14 @@ export interface AppRelease {
 // Add the newest user-facing release first before pushing an app update.
 export const appReleases: AppRelease[] = [
   {
+    id: '2026-10-12-tee-time-errors',
+    date: 'October 12, 2026',
+    title: 'Easier troubleshooting',
+    changes: [
+      'Failed tee-time searches now log the course and date in the browser console, with booking-provider diagnostics for Granite Fields.',
+    ],
+  },
+  {
     id: '2026-09-21-granite-fields',
     date: 'September 21, 2026',
     title: 'More accurate Granite Fields tee times',
